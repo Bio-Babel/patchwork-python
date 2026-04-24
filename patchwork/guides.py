@@ -293,29 +293,35 @@ def _unit_c(*parts: Unit) -> Unit:
 
 
 def _unit_max(u: Unit) -> Unit:
-    """Return a 1-element Unit that is the pmax of *u*."""
+    """Return a 1-element Unit that is the pmax of *u*.
+
+    Max is an aggregation over raw numeric values, which is only
+    meaningful for absolute same-kind units; R's ``unit.pmax`` enforces
+    this. For the mixed-unit fallback we return the first entry via
+    native ``u[0:1]`` so its grob reference in ``data`` is preserved.
+    """
     if len(u.values) <= 1:
         return u
-    # Only works cleanly when all entries share a unit kind; fall back to the max of numeric values.
     uniq_units = set(u.units_list)
     if len(uniq_units) == 1:
         return Unit([max(u.values)], [u.units_list[0]])
-    # Mixed units — just take the first.
-    return Unit([u.values[0]], [u.units_list[0]])
+    return u[0:1]
 
 
 def _interleave_widths(widths: Unit, sep: Unit) -> Unit:
-    """Interleave widths with a separator at every other slot (R's pattern)."""
-    n = len(widths.values) * 2 - 1
-    values = [0.0] * n
-    units = ["mm"] * n
-    for i, (v, u) in enumerate(zip(widths.values, widths.units_list)):
-        values[2 * i] = v
-        units[2 * i] = u
-    for i in range(1, n, 2):
-        values[i] = sep.values[0]
-        units[i] = sep.units_list[0]
-    return Unit(values, units)
+    """R: interleave a widths vector with a separator at every other slot.
+
+    Built via native :func:`grid_py.unit_c`, which carries each input's
+    ``data`` through the concatenation. Equivalent to R's
+    ``unit.c(rbind(widths, sep)[, -ncol])``.
+    """
+    if len(widths) == 0:
+        return widths
+    parts: list[Unit] = [widths[0:1]]
+    for i in range(1, len(widths)):
+        parts.append(sep)
+        parts.append(widths[i:i + 1])
+    return unit_c(*parts)
 
 
 def _interleave_heights(heights: Unit, sep: Unit) -> Unit:

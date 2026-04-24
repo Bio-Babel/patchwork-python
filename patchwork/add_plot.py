@@ -92,6 +92,10 @@ class PlotFiller:
     def __repr__(self) -> str:  # pragma: no cover — cosmetic
         return "<patchwork.PlotFiller>"
 
+    def _repr_png_(self):
+        """Sentinel — no pixels to draw."""
+        return None
+
     def __add__(self, other: Any) -> Any:
         if other is None:
             return self
@@ -206,6 +210,13 @@ class Patchwork:
             f"- Guides are {g}"
         )
 
+    def _repr_png_(self):
+        """Port of R's ``print.patchwork`` for Jupyter displayhooks."""
+        from ._display import safe_repr_png
+        from .core import patchworkGrob
+
+        return safe_repr_png(lambda: patchworkGrob(self))
+
     # ---- Operator overloads --------------------------------------------
     def __add__(self, other: Any) -> "Patchwork":
         # Patchwork-specific RHS types — registered on ``update_ggplot`` —
@@ -315,7 +326,14 @@ def _(plot: PlotFiller, patches: Patches) -> Patchwork:
 def get_patches(plot: Any) -> Patches:
     """Pull the :class:`Patches` out of *plot*, appending the active plot to the list.
 
-    Mirrors R's ``get_patches``.
+    Mirrors R's ``get_patches`` (``R/add_plot.R:36-55``) in semantics,
+    with one deliberate divergence: R *mutates* its input — after
+    ``get_patches(plot)`` runs, ``plot$patches`` is ``NULL`` and the
+    ``'patchwork'`` class is stripped off ``plot``. Python returns a
+    fresh :class:`Patches` and leaves the input untouched, so callers
+    can reuse ``plot`` without surprise. Every in-package caller relies
+    only on the return value, so this is safe; external callers should
+    assume the input is unchanged.
     """
     if is_patchwork(plot):
         patches = plot.patches
@@ -339,7 +357,26 @@ def get_patches(plot: Any) -> Patches:
 
 
 def should_autowrap(x: Any) -> bool:
-    """Return ``True`` if *x* is a grob/raster-like object that must be wrapped."""
+    """Return ``True`` if *x* is a grob/raster-like object that must be wrapped.
+
+    Port of R's ``should_autowrap`` (add_plot.R:30-32):
+
+        is.grob(x) || inherits(x, 'formula') || is.raster(x) ||
+        inherits(x, 'nativeRaster')
+
+    The R side recognises four types; the Python side covers the two
+    with native counterparts:
+
+    - ``is_grob(x)`` — grid_py grobs; covers R's ``is.grob``.
+    - ``isinstance(x, numpy.ndarray)`` — covers both R's ``raster``
+      (matrix with raster class) and ``nativeRaster`` (integer matrix
+      backed by ``.Internal(nativeRaster)``). Both are dense arrays in
+      Python's universe.
+
+    ``formula`` intentionally has no Python analogue — R formulas
+    describe base-R plotting expressions (``~plot(x, y)``) which aren't
+    representable in Python. See :func:`~patchwork.wrap_elements.as_patch_formula`.
+    """
     import numpy as np
 
     if is_grob(x):

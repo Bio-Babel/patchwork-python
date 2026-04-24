@@ -3,13 +3,19 @@
 Ports ``R/wrap_elements.R``. The R source uses S3 dispatch on many input
 types; here we use ``functools.singledispatch`` keyed on Python type.
 
-Scope deviations documented in ``02_feature_checklist.md``:
+Scope deviations from R — the following R S3 methods have no Python
+counterpart because the underlying types do not exist in Python:
 
-- ``as_patch.formula``: raises ``NotImplementedError`` (base-R graphics
-  have no Python analogue).
-- ``as_patch.gt_tbl``: raises ``NotImplementedError`` (no Python port of
-  ``gt``). Handle tabular data through :func:`~patchwork.wrap_table.wrap_table`
-  with a ``pandas.DataFrame`` or ``gtable_py.Gtable`` instead.
+- ``as_patch.formula`` (R: ``gridGraphics::echoGrob`` of a base-R plot
+  expression). Calling :func:`as_patch_formula` raises
+  ``NotImplementedError``.
+- ``as_patch.gt_tbl`` (R: ``gt::as_gtable`` of a ``gt`` table). Use
+  :func:`~patchwork.wrap_table.wrap_table` with a ``pandas.DataFrame``
+  or ``gtable_py.Gtable``. Calling :func:`as_patch_gt_tbl` raises
+  ``NotImplementedError``.
+
+Unknown types dispatched through :func:`as_patch` fall through to the
+default, which raises ``TypeError``.
 """
 
 from __future__ import annotations
@@ -47,6 +53,8 @@ __all__ = [
     "WrappedPatch",
     "wrap_elements",
     "as_patch",
+    "as_patch_formula",
+    "as_patch_gt_tbl",
     "is_wrapped_patch",
 ]
 
@@ -152,9 +160,38 @@ def _(x: np.ndarray, **kwargs: Any) -> Grob:
     return raster_grob(x)
 
 
-# NOTE: formula / gt_tbl handlers raise, matching essentials §4 decisions.
-# They are registered with ``object`` as a fallback rather than dispatched
-# on a separate type because there is no Python ``formula`` / ``gt_tbl``.
+# R's ``as_patch.formula`` and ``as_patch.gt_tbl`` have no Python
+# dispatch target — neither type exists. Expose them as explicit helpers
+# so users hit a clear NotImplementedError rather than a confusing
+# TypeError from singledispatch.
+
+
+def as_patch_formula(x: Any, **kwargs: Any) -> Grob:
+    """R ``as_patch.formula`` has no Python equivalent.
+
+    In R the formula form wraps a base-R plotting expression via
+    ``gridGraphics::echoGrob``. Python has no formula-typed plotting
+    expression, so this is intentionally unimplemented.
+    """
+    raise NotImplementedError(
+        "as_patch.formula has no Python counterpart: base-R graphics "
+        "expressions (e.g. ~plot(x, y)) are not representable in Python. "
+        "Wrap an equivalent grob directly via wrap_elements(full=<grob>)."
+    )
+
+
+def as_patch_gt_tbl(x: Any, **kwargs: Any) -> Grob:
+    """R ``as_patch.gt_tbl`` has no Python equivalent.
+
+    The ``gt`` R package has no Python port; patchwork-python routes
+    tabular content through :func:`~patchwork.wrap_table.wrap_table`
+    with a ``pandas.DataFrame`` or ``gtable_py.Gtable`` instead.
+    """
+    raise NotImplementedError(
+        "as_patch.gt_tbl has no Python counterpart: the R 'gt' package "
+        "has no Python port. Use wrap_table(<pandas.DataFrame>) or pass "
+        "a gtable_py.Gtable to wrap_elements(full=...) instead."
+    )
 
 
 @patch_grob.register(WrappedPatch)

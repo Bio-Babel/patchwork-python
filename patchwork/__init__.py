@@ -52,7 +52,7 @@ def _register_patchwork_cross_module_dispatch() -> None:
     These can't live in their own modules without import cycles, so we
     install them here once all modules have been imported.
     """
-    from .add_plot import Patchwork, PlotFiller
+    from .add_plot import Patchwork, PlotFiller, is_empty
     from .annotation import has_tag
     from .core import patchworkGrob
     from .wrap_elements import as_patch
@@ -66,6 +66,16 @@ def _register_patchwork_cross_module_dispatch() -> None:
     def _(x: PlotFiller) -> bool:  # noqa: F811
         """R ``has_tag.plot_filler`` → FALSE."""
         return False
+
+    @has_tag.register(Patchwork)
+    def _(x: Patchwork) -> bool:  # noqa: F811
+        """R parity: ``has_tag`` on a patchwork falls through to
+        ``has_tag.ggplot`` (since patchwork inherits 'ggplot' class),
+        which returns ``!is_empty(x)`` (patch.R:80). In Python the
+        dataclass doesn't carry ggplot inheritance, so register
+        explicitly — the active plot (``x.plot``) is what
+        ``recurse_tags`` will try to tag via ``x + labs(tag=...)``."""
+        return not is_empty(x)
 
 
 _register_patchwork_cross_module_dispatch()
@@ -94,7 +104,12 @@ from .multipage import (  # noqa: E402
     set_dim,
 )
 from .spacer import plot_spacer  # noqa: E402
-from .wrap_elements import as_patch, wrap_elements  # noqa: E402
+from .wrap_elements import (  # noqa: E402
+    as_patch,
+    as_patch_formula,
+    as_patch_gt_tbl,
+    wrap_elements,
+)
 from .wrap_ggplot_grob import wrap_ggplot_grob  # noqa: E402
 from .wrap_plots import wrap_plots  # noqa: E402
 from .wrap_table import wrap_table  # noqa: E402
@@ -106,6 +121,8 @@ __all__ = [
     "align_plots",
     "area",
     "as_patch",
+    "as_patch_formula",
+    "as_patch_gt_tbl",
     "build_patchwork",
     "free",
     "get_dim",

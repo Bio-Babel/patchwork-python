@@ -37,14 +37,21 @@ def wrap_plots(
     design: Any = None,
     axes: Any = None,
     axis_titles: Any = WAIVER,
+    **named_plots: Any,
 ) -> Patchwork:
     """Compose plots into a patchwork programmatically.
 
     Parameters
     ----------
     *plots
-        Individual plots or a single iterable. Named kwargs are forwarded
-        to :func:`plot_layout`.
+        Individual plots, or a single ``list`` / ``tuple`` / ``dict`` of
+        plots. Dict keys are treated as area names.
+    **named_plots
+        Named plots as keyword arguments (R-style:
+        ``wrap_plots(A=p1, B=p2, design="AB")``). Mixed positional and
+        named plots are supported.
+
+    Other keyword arguments are forwarded to :func:`plot_layout`.
 
     Returns
     -------
@@ -53,37 +60,54 @@ def wrap_plots(
     if axis_titles is WAIVER:
         axis_titles = axes
 
-    if len(plots) == 0:
+    if len(plots) == 0 and not named_plots:
         raise ValueError("`wrap_plots` needs at least one plot")
 
-    first = plots[0]
-    if _is_valid_plot(first):
-        plot_list: List[Any] = list(plots)
-        plot_names: Optional[dict[int, str]] = None
-    elif isinstance(first, (list, tuple)) or (
-        isinstance(first, dict) and len(plots) == 1
-    ):
+    plot_list: List[Any] = []
+    plot_names: Optional[dict[int, str]] = None
+
+    if len(plots) == 1 and not named_plots:
+        first = plots[0]
         if isinstance(first, dict):
             plot_list = list(first.values())
-            plot_names = {i: k for i, k in enumerate(first.keys())}
-        else:
+            plot_names = dict(enumerate(first.keys()))
+        elif isinstance(first, (list, tuple)) and not _is_valid_plot(first):
             plot_list = list(first)
-            plot_names = None
+        elif _is_valid_plot(first):
+            plot_list = [first]
+        else:
+            raise TypeError(
+                "Can only wrap <ggplot> and/or <grob> objects or a list of them"
+            )
     else:
-        raise TypeError(
-            "Can only wrap <ggplot> and/or <grob> objects or a list of them"
-        )
+        # Mixed positional + named (R-style). Positional plots come first,
+        # named plots append after, matching R's list(...) ordering where
+        # named entries appear in declaration order.
+        plot_list = list(plots) + list(named_plots.values())
+        if named_plots:
+            offset = len(plots)
+            plot_names = {offset + i: k for i, k in enumerate(named_plots.keys())}
 
     if not all(_is_valid_plot(p) for p in plot_list):
         raise TypeError("Only know how to add <ggplot> and/or <grob> objects")
 
+    # Name-based area placement (R wrap_plots.R:59-69): when a design
+    # string is set and every plot name matches an area letter, fill the
+    # area slots by name and pad the rest with plot_spacer().
     if plot_names is not None and isinstance(design, str):
         area_chars = set(c for c in design if not c.isspace())
         area_chars.discard("#")
-        if set(plot_names.values()) <= area_chars:
+        name_values = set(plot_names.values())
+        if name_values and name_values <= area_chars:
             ordered_chars = sorted(area_chars)
-            name_to_plot = {plot_names[i]: p for i, p in enumerate(plot_list)}
-            plot_list = [name_to_plot.get(ch, plot_spacer()) for ch in ordered_chars]
+            name_to_plot: dict[str, Any] = {}
+            for i, p in enumerate(plot_list):
+                nm = plot_names.get(i)
+                if nm is not None:
+                    name_to_plot[nm] = p
+            plot_list = [
+                name_to_plot.get(ch, plot_spacer()) for ch in ordered_chars
+            ]
 
     result: Any = plot_filler()
     for p in plot_list:

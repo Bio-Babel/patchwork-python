@@ -274,6 +274,11 @@ def collect_axis_titles(gt: Gtable, dir: str = "x", merge: bool = True) -> Gtabl
             continue
 
         runs = rle_2d(structure, byrow=(dir == "y"), ignore_na=True)
+        # Mirror R collect_axes.R:42 — the `!= 0` gate is intentional and
+        # asymmetric with collect_axes (R:127): here we also skipped the
+        # nested patchwork cells by setting their structure value to 0
+        # above, so runs of value 0 must be excluded. Do not "simplify"
+        # this to match collect_axes.
         runs = [r for r in runs if r["value"] != -1 and r["value"] != 0]
 
         panels_list = []
@@ -348,14 +353,29 @@ def collect_axes(gt: Gtable, dir: str = "x") -> Gtable:
             continue
 
         runs = rle_2d(structure, byrow=(dir == "y"))
+        # Mirror R collect_axes.R:127 — no `!= 0` gate here; only NA
+        # (represented as -1) is filtered out. The 0-gate belongs to
+        # collect_axis_titles (R:42) which sets nested-patchwork cells
+        # to 0 via an explicit write; this function never performs
+        # that write, so there is nothing to filter.
         runs = [r for r in runs if r["value"] != -1]
+
+        # Collect the "keeper" grob index for every run — R computes
+        # start_idx <- layout[as.matrix(runs[, start_runs])] in one shot
+        # (collect_axes.R:133), then does a single setdiff(idx, start_idx)
+        # per axis name. Doing it per-run the way the previous code did
+        # marks every run's own keeper for deletion under every other
+        # run's iteration, collapsing all axes away.
+        start_idx: list[int] = []
         for r in runs:
             rs = (r["row_end"] if name == "axis-b" else r["row_start"]) - 1
             cs = (r["col_end"] if name == "axis-r" else r["col_start"]) - 1
-            start_idx = int(layout[rs, cs])
-            for i in idx:
-                if i != start_idx:
-                    delete.append(i)
+            v = int(layout[rs, cs])
+            if v != -1:
+                start_idx.append(v)
+
+        start_set = set(start_idx)
+        delete.extend(i for i in idx if i not in start_set)
 
     deleted_rows = sorted(set(
         gt.layout["t"][i] for i in delete

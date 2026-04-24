@@ -95,16 +95,10 @@ def plot_annotation(
     PlotAnnotation
         A specification object to be ``+``ed onto a patchwork.
     """
-    if theme is None:
-        th: Any = globals()["theme"]() if False else __import__("ggplot2_py").theme()
-    else:
-        th = theme
-    # Rebind local `theme` to avoid shadowing the parameter name above.
-    del th  # noqa: F841 — temporary to satisfy the linter; actual value computed below.
+    # Mirror R plot_annotation.R:77 — ``th <- if (is.null(theme)) ggplot2::theme() else theme``.
+    from ggplot2_py import theme as _empty_theme
 
-    import ggplot2_py as _gg
-
-    resolved_theme = _gg.theme() if theme is None else theme
+    resolved_theme = _empty_theme() if theme is None else theme
 
     return PlotAnnotation(
         title=title,
@@ -324,11 +318,12 @@ def annotate_table(table: Gtable, annotation: PlotAnnotation) -> Gtable:
         table = gtable_add_rows(table, _heights_at(grob, [1]), 0)
 
     if annotation.caption is not None:
-        tail_heights = _heights_tail(grob, 3)
-        keep = Unit(
-            [tail_heights.values[0], tail_heights.values[2]],
-            [tail_heights.units_list[0], tail_heights.units_list[2]],
-        )
+        # R: ``gtable_add_rows(table, tail(p$heights, 3)[-2])`` — take
+        # the last three heights then drop the middle (separator between
+        # caption and bottom margin), keeping slots 0 and 2. Native
+        # subscript carries ``data`` forward automatically (R parity
+        # with ``[.unit``).
+        keep = _heights_tail(grob, 3)[[0, 2]]
         table = gtable_add_rows(table, keep)
         table = gtable_add_grob(
             table,
@@ -366,24 +361,20 @@ def _resolve(x: Any) -> Optional[str]:
 
 
 def _heights_at(grob: Gtable, indices: Sequence[int]) -> Unit:
-    vals = [grob.heights.values[i - 1] for i in indices]
-    units = [grob.heights.units_list[i - 1] for i in indices]
-    return Unit(vals, units)
+    """R: ``grob$heights[indices]`` — 1-based subset, preserves ``data``."""
+    return grob.heights[[i - 1 for i in indices]]
 
 
 def _widths_at(grob: Gtable, indices: Sequence[int]) -> Unit:
-    vals = [grob.widths.values[i - 1] for i in indices]
-    units = [grob.widths.units_list[i - 1] for i in indices]
-    return Unit(vals, units)
+    """R: ``grob$widths[indices]`` — 1-based subset, preserves ``data``."""
+    return grob.widths[[i - 1 for i in indices]]
 
 
 def _heights_tail(grob: Gtable, n: int) -> Unit:
-    vals = list(grob.heights.values)[-n:]
-    units = list(grob.heights.units_list)[-n:]
-    return Unit(vals, units)
+    """R: ``tail(grob$heights, n)`` — last *n* entries, preserves ``data``."""
+    return grob.heights[-n:]
 
 
 def _widths_tail(grob: Gtable, n: int) -> Unit:
-    vals = list(grob.widths.values)[-n:]
-    units = list(grob.widths.units_list)[-n:]
-    return Unit(vals, units)
+    """R: ``tail(grob$widths, n)`` — last *n* entries, preserves ``data``."""
+    return grob.widths[-n:]

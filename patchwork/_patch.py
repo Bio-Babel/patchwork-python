@@ -61,6 +61,28 @@ class Patch:
     def __repr__(self) -> str:  # pragma: no cover — cosmetic
         return f"<patchwork.Patch {id(self):x}>"
 
+    def _repr_png_(self):
+        """Port of R's ``print.patch`` / ``print.inset_patch`` for Jupyter.
+
+        A bare patch renders through :func:`patch_grob`; a patch tagged
+        by :func:`~patchwork.inset_element` is wrapped in an empty
+        ``plot_spacer()`` first so the inset's alignment settings have a
+        host to lay out against (matching ``print.inset_patch`` in R).
+        """
+        from ._display import safe_repr_png
+
+        def build():
+            from .inset import is_inset_patch
+
+            if is_inset_patch(self):
+                from .core import patchworkGrob
+                from .spacer import plot_spacer
+
+                return patchworkGrob(plot_spacer() + self)
+            return patch_grob(self)
+
+        return safe_repr_png(build)
+
     def __add__(self, other):
         """Place *self* first, then *other*.
 
