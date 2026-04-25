@@ -328,7 +328,16 @@ def _simplify_plain_gtable(gt: Gtable) -> Gtable:
 
     p_rows = list(range(rows[0], rows[1] + 1))
     p_cols = list(range(cols[0], cols[1] + 1))
-    panels = gt[p_rows[0]:p_rows[-1] + 1, p_cols[0]:p_cols[-1] + 1]
+    # ``Gtable.__getitem__`` slices with Python's 0-based / half-open
+    # convention, but ``p_rows`` / ``p_cols`` carry R's 1-based positions
+    # (panel_pos comes from ``find_panel`` which mirrors R layout$t etc.).
+    # Convert: 1-based inclusive [start..end] → 0-based half-open
+    # [start-1, end). For p4 (facet_wrap, panel cols 7..15) the prior
+    # off-by-one made ``panels`` slice cols 8..16 (and miss row 10),
+    # producing an empty inner gtable that erased every facet panel
+    # when ``_simplify_free`` re-added it as the merged ``panel; ...``
+    # cell.
+    panels = gt[p_rows[0] - 1:p_rows[-1], p_cols[0] - 1:p_cols[-1]]
     keep_rows = [r for r in range(1, len(gt.heights.values) + 1) if r not in p_rows]
     keep_cols = [c for c in range(1, len(gt.widths.values) + 1) if c not in p_cols]
 
@@ -1089,30 +1098,27 @@ def _simplify_free(gt: Gtable, gt_new: Gtable, panels: Gtable, rows, cols) -> Gt
             ),
         )
     else:
+        # R: ``simplify_free`` else-branch (plot_patchwork.R:466-489).
+        # R wraps each above/below row's panel-area grobs into a single
+        # gtable WITH a viewport so the inner content auto-sizes to its
+        # natural height. The Python rendering pipeline pre-resolves
+        # viewport heights before the inner gtable's grobs are in scope,
+        # which collapses lazy ``grobheight`` units to 0 and erases the
+        # title/strips/axis labels. Skipping the wrapper viewport keeps
+        # the layout-name structure R-faithful (one combined cell per
+        # row, named via paste0(layout$name, collapse=", ")) while
+        # letting the inner gtable's own widths/heights resolve normally
+        # against the parent cell — which is what we visually need.
         for i in range(1, len(gt.heights.values) + 1):
             if i >= rows[0]:
                 if i <= rows[1]:
                     continue
                 ii = i - (rows[1] - rows[0])
-                pos = "bottom"
             else:
                 ii = i
-                pos = "top"
             table = gt[i - 1:i, p_cols[0] - 1:p_cols[-1]]
             if table.grobs:
                 grobname = _paste_layout_names(table)
-                if pos == "top":
-                    table.vp = Viewport(
-                        y=Unit([0.0], ["npc"]),
-                        height=table.heights,
-                        just=["centre", "bottom"],
-                    )
-                else:
-                    table.vp = Viewport(
-                        y=Unit([1.0], ["npc"]),
-                        height=table.heights,
-                        just=["centre", "top"],
-                    )
                 gt_new = gtable_add_grob(
                     gt_new, table,
                     t=ii, l=cols[0], clip="off",
