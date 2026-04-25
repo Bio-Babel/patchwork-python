@@ -91,6 +91,40 @@ class TestPlotLayout:
         assert isinstance(pl.design, PatchArea)
         assert len(pl.design) == 2
 
+    def test_axis_titles_inherits_axes_when_omitted(self):
+        # Mirrors R's `axis_titles = axes` lazy default-binding
+        # (plot_layout.R:113). Calling plot_layout(axes='collect_x')
+        # without axis_titles must propagate 'collect_x' onto axis_titles
+        # so the downstream `do_change` merge in `update_ggplot(PlotLayout)`
+        # writes both fields.
+        pl = plot_layout(axes="collect_x")
+        assert pl.axes == "collect_x"
+        assert pl.axis_titles == "collect_x"
+
+    def test_axis_titles_explicit_overrides_inheritance(self):
+        # User passes axis_titles explicitly → no inheritance.
+        pl = plot_layout(axes="collect", axis_titles="keep")
+        assert pl.axes == "collect"
+        assert pl.axis_titles == "keep"
+
+    def test_axis_titles_default_when_neither_passed(self):
+        # Both at WAIVER should stay at WAIVER (no merge writes either).
+        from patchwork._utils import is_waiver
+
+        pl = plot_layout()
+        assert is_waiver(pl.axes)
+        assert is_waiver(pl.axis_titles)
+
+    def test_axis_titles_explicit_waiver_opts_out(self):
+        # Passing WAIVER explicitly suppresses inheritance — both fields
+        # remain WAIVER even though `axes` is set, matching R's
+        # behaviour when `axis_titles=waiver()` is passed at the call site.
+        from patchwork._utils import WAIVER, is_waiver
+
+        pl = plot_layout(axes="collect_x", axis_titles=WAIVER)
+        assert pl.axes == "collect_x"
+        assert is_waiver(pl.axis_titles)
+
 
 class TestCreateDesign:
     def test_byrow_true(self):

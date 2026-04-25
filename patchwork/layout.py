@@ -245,6 +245,15 @@ class PlotLayout:
         ]
 
 
+# Private sentinel for "axis_titles parameter not supplied" — distinct
+# from WAIVER so we can mirror R's lazy default-binding
+# `axis_titles = axes` (plot_layout.R:113). Without a separate sentinel
+# we can't tell `plot_layout(axes='collect_x')` (axis_titles should
+# inherit 'collect_x') from `plot_layout(axes='collect_x',
+# axis_titles=WAIVER)` (user explicitly disables inheritance).
+_AXIS_TITLES_INHERIT = object()
+
+
 def plot_layout(
     ncol: Any = WAIVER,
     nrow: Any = WAIVER,
@@ -255,7 +264,7 @@ def plot_layout(
     tag_level: Any = WAIVER,
     design: Any = WAIVER,
     axes: Any = WAIVER,
-    axis_titles: Any = WAIVER,
+    axis_titles: Any = _AXIS_TITLES_INHERIT,
 ) -> PlotLayout:
     """Define the grid to compose plots in.
 
@@ -278,7 +287,10 @@ def plot_layout(
     axes : {'keep', 'collect', 'collect_x', 'collect_y'}, optional
         Whether duplicated axes are removed within rows/columns.
     axis_titles : {'keep', 'collect', 'collect_x', 'collect_y'}, optional
-        Same but for axis titles. Defaults to ``axes``.
+        Same but for axis titles. **When omitted, defaults to whatever
+        ``axes`` is** — mirroring R's lazy ``axis_titles = axes``
+        default-argument binding (plot_layout.R:113). To opt out of the
+        inheritance, pass ``axis_titles=WAIVER`` explicitly.
 
     Returns
     -------
@@ -291,6 +303,11 @@ def plot_layout(
         tag_level = arg_match(tag_level, ("keep", "new"), arg="tag_level")
     if axes is not None and not is_waiver(axes):
         axes = arg_match(axes, ("keep", "collect", "collect_x", "collect_y"), arg="axes")
+    # Mirror R's `axis_titles = axes` lazy default. Resolution must
+    # happen AFTER `axes` is validated so an inherited value is already
+    # the canonicalised string. Re-validating below is harmless (idempotent).
+    if axis_titles is _AXIS_TITLES_INHERIT:
+        axis_titles = axes
     if axis_titles is not None and not is_waiver(axis_titles):
         axis_titles = arg_match(
             axis_titles,
