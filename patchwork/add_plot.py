@@ -80,14 +80,23 @@ def new_patchwork() -> Patches:
     return Patches()
 
 
-class PlotFiller:
-    """Sentinel patch representing "no plot yet" (R's ``plot_filler``).
+class PlotFiller(GGPlot):
+    """Sentinel "no plot yet" — port of R's ``plot_filler`` (R/add_plot.R:118-122)::
 
-    ``PlotFiller + x`` routes through :func:`add_patches` so that seeding a
-    reduction with ``plot_filler()`` and folding over a list of plots
-    produces a :class:`Patchwork` without the first plot ever becoming the
-    "active" one.
+        plot_filler <- function() {
+          p <- ggplot()
+          class(p) <- c('plot_filler', class(p))
+          p
+        }
+
+    ``PlotFiller`` IS an empty ggplot — additions like ``+ theme_x()`` or
+    ``+ labs(...)`` flow through standard ggplot machinery, while patchwork
+    code can still recognise it as "empty" via ``isinstance(x, PlotFiller)``
+    (mirrors R's ``is_empty <- function(x) inherits(x, 'plot_filler')``).
     """
+
+    def __init__(self) -> None:
+        super().__init__()  # empty ggplot — data=None, mapping={}, layers=[]…
 
     def __repr__(self) -> str:  # pragma: no cover — cosmetic
         return "<patchwork.PlotFiller>"
@@ -97,17 +106,21 @@ class PlotFiller:
         return None
 
     def __add__(self, other: Any) -> Any:
+        # Patchwork-specific RHS types still need to promote the result
+        # to a Patchwork (R's ``ggplot_add.ggplot`` / ``ggplot_add.patch``
+        # equivalents registered on ``update_ggplot``). For everything
+        # else (theme, labels, scales, coords, facets, layers …) we let
+        # ``GGPlot.__add__`` handle it natively so the empty plot can
+        # absorb modifiers exactly like R's ``ggplot() + theme_minimal()``.
         if other is None:
             return self
-        if is_ggplot(other) or isinstance(other, Patchwork):
+        if isinstance(other, Patchwork) or isinstance(other, PlotFiller):
             return update_ggplot(other, self)
-        # Defer to the registered update_ggplot handler for *other*'s type.
-        try:
-            return update_ggplot(other, self)
-        except Exception:
-            from .wrap_elements import wrap_elements
+        from ._patch import Patch as _Patch
 
-            return update_ggplot(wrap_elements(full=other), self)
+        if isinstance(other, _Patch):
+            return update_ggplot(other, self)
+        return super().__add__(other)
 
     def __radd__(self, other: Any) -> Any:  # pragma: no cover — defensive
         return self.__add__(other)

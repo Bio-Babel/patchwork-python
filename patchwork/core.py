@@ -623,6 +623,15 @@ def build_patchwork(x: Any, guides: str = "auto") -> Gtable:
 
 
 def _as_sequence(x):
+    """Normalise ``x`` for length-based recycling.
+
+    Mirrors R's implicit treatment of ``unit`` vectors as element-iterable
+    sequences. A bare :class:`grid_py.Unit` is exploded into a list of
+    single-entry Units so :func:`rep_len` can recycle entries individually
+    (matching R's ``rep_len(unit(...))`` which preserves per-entry units).
+    """
+    if isinstance(x, Unit):
+        return [x[i:i + 1] for i in range(len(x))]
     if isinstance(x, (list, tuple)):
         return list(x)
     return [x]
@@ -1533,21 +1542,20 @@ def _free_panel(gt: Gtable, has_side: Sequence[bool]) -> Gtable:
     panel_heights_units = [gt.heights.units_list[i - 1] for i in panel_row_pos]
 
     # Expand zero-size panel columns/rows to 1 null so liberation doesn't
-    # produce a zero-height/-width slice.
-    widths_values = list(gt.widths.values)
-    widths_units = list(gt.widths.units_list)
-    heights_values = list(gt.heights.values)
-    heights_units = list(gt.heights.units_list)
+    # produce a zero-height/-width slice. Use ``[<-.unit``-style native
+    # subscript so non-panel cells keep their lazy ``data`` arrays
+    # (grobwidth/grobheight references).
+    one_null = Unit([1.0], ["null"])
+    widths = gt.widths.copy()
     for ci, pcol in enumerate(panel_col_pos):
         if panel_widths[ci] == 0:
-            widths_values[pcol - 1] = 1.0
-            widths_units[pcol - 1] = "null"
+            widths[pcol - 1] = one_null
+    gt.widths = widths
+    heights = gt.heights.copy()
     for ri, prow in enumerate(panel_row_pos):
         if panel_heights[ri] == 0:
-            heights_values[prow - 1] = 1.0
-            heights_units[prow - 1] = "null"
-    gt.widths = Unit(widths_values, widths_units)
-    gt.heights = Unit(heights_values, heights_units)
+            heights[prow - 1] = one_null
+    gt.heights = heights
 
     # Fixed-aspect branch — R:677-698. When the outer gt carries
     # ``respect = TRUE`` (set by ggplot2 for fixed-aspect coords), R
@@ -1835,12 +1843,38 @@ def set_panel_dimensions(
     width_indices = [PANEL_COL + TABLE_COLS * i - 1 for i in range(len(widths))]
     height_indices = [PANEL_ROW + TABLE_ROWS * i - 1 for i in range(len(heights))]
 
-    # Step 0 — normalise input widths/heights. NaN → sentinel (-1, "null")
-    # that signals "grid-level value not set yet".
-    widths_values = [-1.0 if (isinstance(w, float) and math.isnan(w)) else float(w) for w in widths]
-    heights_values = [-1.0 if (isinstance(h, float) and math.isnan(h)) else float(h) for h in heights]
-    widths_units = ["null"] * len(widths_values)
-    heights_units = ["null"] * len(heights_values)
+    # Step 0 — normalise input widths/heights. Mirror R plot_patchwork.R:1086-1095:
+    #   if (!is.unit(widths)) { widths[is.na(widths)] <- -1; widths <- unit(widths, 'null') }
+    # then ``width_strings <- as.character(widths)`` so the (-1, "null") tuple
+    # encodes "grid-level value not set yet". When the user supplied a Unit
+    # (potentially split into single-entry Units by :func:`_as_sequence`),
+    # preserve the unit types per entry (e.g. ``Unit([5, 1], ['cm','null'])``).
+    def _split_dim(dim: Any) -> tuple[list[float], list[str]]:
+        if isinstance(dim, Unit):
+            entries: list[Any] = [dim[i:i + 1] for i in range(len(dim))]
+        else:
+            entries = list(dim)
+        vals: list[float] = []
+        units: list[str] = []
+        for entry in entries:
+            if isinstance(entry, Unit):
+                v = float(entry.values[0])
+                u = entry.units_list[0]
+            elif isinstance(entry, float) and math.isnan(entry):
+                v = -1.0
+                u = "null"
+            else:
+                v = float(entry)
+                u = "null"
+            if isinstance(v, float) and math.isnan(v):
+                v = -1.0
+                u = "null"
+            vals.append(v)
+            units.append(u)
+        return vals, units
+
+    widths_values, widths_units = _split_dim(widths)
+    heights_values, heights_units = _split_dim(heights)
 
     def _is_unset_width(ci: int) -> bool:
         return widths_units[ci] == "null" and widths_values[ci] == -1.0
@@ -2118,19 +2152,32 @@ def _sum_unit(u: Unit) -> Unit:
 
 
 def _slice_gtable(gt: Gtable, rows: Sequence[int], cols: Sequence[int]) -> Gtable:
-    """Extract a sub-gtable at the given 1-based row/col lists."""
-    # gtable_py supports slicing via __getitem__; use it when the ranges are contiguous.
+    """Extract a sub-gtable at the given 1-based row/col lists.
+
+    R equivalent: ``gt[rows, cols]``. The slice must honour R's
+    ``gt[-p_rows, -p_cols]`` "exclude" semantic — the caller passes the
+    full keep-list (not a contiguous range), and this helper delegates
+    to :py:meth:`gtable_py.Gtable.__getitem__` with a list of 0-based
+    indices so genuinely excluded rows/cols are dropped (and any grob
+    that straddled them is deleted rather than smuggled through).
+    """
     if rows and cols:
-        return gt[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]
+        return gt[[r - 1 for r in rows], [c - 1 for c in cols]]
     return gt
 
 
 def _set_unit_value(u: Unit, idx: int, value: float, unit_name: str) -> Unit:
-    values = list(u.values)
-    units = list(u.units_list)
-    values[idx] = float(value)
-    units[idx] = unit_name
-    return Unit(values, units)
+    """R: ``u[idx + 1] <- unit(value, unit_name)``.
+
+    Native :py:meth:`grid_py.Unit.__setitem__` updates one slot in place
+    while preserving every OTHER slot's ``data`` (the grob references
+    that lazy ``grobwidth`` / ``grobheight`` / ``sum`` units rely on).
+    Rebuilding from a flat ``Unit(values, units)`` would silently drop
+    every neighbour's data and collapse them to 0 mm at draw time.
+    """
+    out = u.copy()
+    out[idx] = Unit([float(value)], [unit_name])
+    return out
 
 
 def _drop_row(gt: Gtable, row: int) -> Gtable:

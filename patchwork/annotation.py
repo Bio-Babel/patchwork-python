@@ -288,11 +288,24 @@ def annotate_table(table: Gtable, annotation: PlotAnnotation) -> Gtable:
     )
     grob = ggplotGrob(p)
     max_z = max(table.layout["z"])
-    fix_respect = False  # Matrix-respect is unusual; skip for v0.
+
+    # R: ``fix_respect <- is.matrix(table$respect)`` — when set_panel_dimensions
+    # produced a per-cell respect matrix, every gtable_add_rows/cols below
+    # must grow the matrix in the same direction so its shape stays in sync
+    # with the gtable (plot_annotation.R:166-191).
+    import numpy as np
+
+    respect = getattr(table, "_respect", None)
+    fix_respect = isinstance(respect, np.ndarray) and respect.ndim == 2
 
     if annotation.title is not None or annotation.subtitle is not None:
         heights_to_prepend = _heights_at(grob, [1, 3, 4])
         table = gtable_add_rows(table, heights_to_prepend, 0)
+        if fix_respect:
+            table._respect = np.vstack([
+                np.zeros((3, table._respect.shape[1]), dtype=table._respect.dtype),
+                table._respect,
+            ])
 
         table = gtable_add_grob(
             table,
@@ -316,6 +329,11 @@ def annotate_table(table: Gtable, annotation: PlotAnnotation) -> Gtable:
         )
     else:
         table = gtable_add_rows(table, _heights_at(grob, [1]), 0)
+        if fix_respect:
+            table._respect = np.vstack([
+                np.zeros((1, table._respect.shape[1]), dtype=table._respect.dtype),
+                table._respect,
+            ])
 
     if annotation.caption is not None:
         # R: ``gtable_add_rows(table, tail(p$heights, 3)[-2])`` — take
@@ -325,6 +343,11 @@ def annotate_table(table: Gtable, annotation: PlotAnnotation) -> Gtable:
         # with ``[.unit``).
         keep = _heights_tail(grob, 3)[[0, 2]]
         table = gtable_add_rows(table, keep)
+        if fix_respect:
+            table._respect = np.vstack([
+                table._respect,
+                np.zeros((2, table._respect.shape[1]), dtype=table._respect.dtype),
+            ])
         table = gtable_add_grob(
             table,
             get_grob(grob, "caption"),
@@ -337,9 +360,20 @@ def annotate_table(table: Gtable, annotation: PlotAnnotation) -> Gtable:
         )
     else:
         table = gtable_add_rows(table, _heights_tail(grob, 1))
+        if fix_respect:
+            table._respect = np.vstack([
+                table._respect,
+                np.zeros((1, table._respect.shape[1]), dtype=table._respect.dtype),
+            ])
 
     table = gtable_add_cols(table, _widths_at(grob, [1]), 0)
     table = gtable_add_cols(table, _widths_tail(grob, 1))
+    if fix_respect:
+        table._respect = np.hstack([
+            np.zeros((table._respect.shape[0], 1), dtype=table._respect.dtype),
+            table._respect,
+            np.zeros((table._respect.shape[0], 1), dtype=table._respect.dtype),
+        ])
     table = gtable_add_grob(
         table,
         get_grob(grob, "background"),
