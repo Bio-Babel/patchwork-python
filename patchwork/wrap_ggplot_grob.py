@@ -56,12 +56,11 @@ def wrap_ggplot_grob(x: Gtable) -> TablePatch:
 def _(x: TablePatch, guides: str = "auto") -> Gtable:
     """Resolve a :class:`TablePatch` to a gtable with patchwork-friendly extras."""
     # Lazy import to avoid cycles
-    from .core import _pad_to_canonical, add_guides, add_strips
+    from .core import add_guides, add_strips
 
     gt = x.get_attr("table")
     gt = add_strips(gt)
     gt = add_guides(gt, collect=(guides == "collect"))
-    gt = _pad_to_canonical(gt)
 
     labels = getattr(x.plot, "labels", {}) or {}
     if "tag" in labels:

@@ -7,12 +7,12 @@ many of each canonical name appear. The resulting dict is diffed
 against a baseline TSV produced by ``tests/_snapshots/gen_gold.R``.
 
 Why counts instead of positions?
-  R's ``ggplotGrob`` produces a 16x13 gtable; ``ggplot2_py`` after
-  ``_pad_to_canonical`` produces 18x15. Absolute row/col indices
-  therefore *cannot* match. Name counts survive that padding diff and
-  still catch real regressions (e.g. ``collect_axes`` silently removing
-  the wrong axes, ``_free_panel`` dropping strips, ``patchwork_grob``
-  losing the title row).
+  Both R and ``ggplot2_py`` ``ggplotGrob`` emit a 16x13 gtable;
+  ``add_strips`` then promotes both sides to the canonical 18xN
+  shape. Counts of canonical names survive minor positional
+  differences and still catch real regressions (e.g. ``collect_axes``
+  silently removing the wrong axes, ``_free_panel`` dropping strips,
+  ``patchwork_grob`` losing the title row).
 
 The baselines live in ``tests/_snapshots/*.tsv`` and are checked in.
 Regenerate them only when an intended behaviour change has been

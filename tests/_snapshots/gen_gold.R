@@ -9,8 +9,8 @@
 # ``patchwork-python`` emit (e.g. ``guide-box-right`` → ``guide-box``,
 # ``axis-b-1-1`` → ``axis-b``).  The test then compares *counts* of
 # canonical names — a coarse-but-robust fingerprint that survives the
-# R vs Python padding shape differences (R 16x13 vs Python 18x15 after
-# _pad_to_canonical).
+# minor positional differences between R and Python after add_strips
+# brings both to the canonical 18xN shape.
 #
 # Run:
 #   Rscript tests/_snapshots/gen_gold.R
