@@ -47,8 +47,8 @@ def _coerce_to_gt(table: Any) -> Any:
         from great_tables import GT
     except ImportError as exc:
         raise ImportError(
-            "wrap_table requires the great_tables package "
-            "(``pip install great_tables``)."
+            "wrap_table requires the great_tables package. Install via "
+            "``pip install patchwork-python[tables]``."
         ) from exc
     if isinstance(table, pd.DataFrame):
         return GT(table)
