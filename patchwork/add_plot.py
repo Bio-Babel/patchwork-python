@@ -481,6 +481,24 @@ def _register_update_ggplot() -> None:
 
             return plot + wrap_elements(full=obj)
 
+    # ``great_tables.GT`` — port of R ``ggplot_add.gt_tbl`` (add_plot.R:24).
+    # R: ``plot + wrap_table(object)``. We mirror that exactly so users can
+    # write ``p + GT(df)`` / ``p | GT(df)`` / ``p / GT(df)`` and the GT
+    # gets wrapped through the same ``wrap_table`` path that powers
+    # ``as_patch.GT`` (whose dispatch is installed in wrap_table.py).
+    # ``great_tables`` is an optional dependency; skip silently if absent
+    # so the patchwork module still imports.
+    try:
+        from great_tables import GT as _GT
+    except ImportError:
+        _GT = None
+    if _GT is not None:
+        @update_ggplot.register(_GT)
+        def _(obj: Any, plot: Any, object_name: str = "") -> Patchwork:  # noqa: F811
+            from .wrap_table import wrap_table
+
+            return plot + wrap_table(obj)
+
 
 def _is_waiver_value(v: Any) -> bool:
     """Helper that avoids an import cycle for the per-dict waiver check."""
