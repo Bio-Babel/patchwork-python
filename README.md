@@ -1,5 +1,7 @@
 # patchwork-python
 
+[![PyPI](https://img.shields.io/pypi/v/patchwork-python)](https://pypi.org/project/patchwork-python/)
+
 Python port of the R [`patchwork`](https://patchwork.data-imaginist.com/) package.
 
 `patchwork` lets you compose multiple `ggplot` figures into a single layout
