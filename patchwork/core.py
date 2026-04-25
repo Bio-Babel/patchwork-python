@@ -177,7 +177,6 @@ def _(x: GGPlot, guides: str = "auto") -> Gtable:
     gt = ggplotGrob(x)
     gt = add_strips(gt)
     gt = add_guides(gt, collect=(guides == "collect"))
-    gt = _pad_to_canonical(gt)
     gt = _apply_fixed_dim_margins(gt, x)
     return gt
 
@@ -216,7 +215,6 @@ def _register_plot_table_patchwork() -> None:
         gt = ggplotGrob(x)
         gt = add_strips(gt)
         gt = add_guides(gt, collect=(guides == "collect"))
-        gt = _pad_to_canonical(gt)
         gt = _apply_fixed_dim_margins(gt, x)
         return gt
 
@@ -693,6 +691,46 @@ def patchworkGrob(x: Any) -> Gtable:
 patchwork_grob = patchworkGrob
 
 
+@singledispatch
+def as_gtable(x: Any) -> Gtable:
+    """Coerce a plot or patchwork into a :class:`gtable_py.Gtable`.
+
+    Port of R's S3 generic ``as.gtable()`` (NAMESPACE export
+    ``S3method(as.gtable, patchwork)``). Lets users obtain the final
+    rendered gtable so they can compose patchwork output with native
+    grid graphics. R registrations:
+
+    * ``as.gtable.patchwork`` → ``patchworkGrob(x)``
+      (plot_patchwork.R, one-line method).
+    * ``as.gtable.ggplot`` → ``ggplot2::ggplotGrob(x)``
+      (provided by ggplot2; we mirror it explicitly for parity).
+
+    Parameters
+    ----------
+    x : Patchwork or GGPlot
+        The plot to convert.
+
+    Returns
+    -------
+    gtable_py.Gtable
+        The fully-rendered gtable.
+
+    Raises
+    ------
+    TypeError
+        If *x* has no registered ``as_gtable`` handler.
+    """
+    raise TypeError(f"No `as_gtable` method for object of type {type(x).__name__}")
+
+
+@as_gtable.register(GGPlot)
+def _(x: GGPlot) -> Gtable:
+    """R: ``as.gtable.ggplot`` (provided by ggplot2) → ``ggplotGrob(x)``."""
+    from ggplot2_py import ggplotGrob as _ggplotGrob
+
+    return _ggplotGrob(x)
+
+
 # -----------------------------------------------------------------------------
 # add_strips / add_guides (ports of the corresponding R helpers)
 # -----------------------------------------------------------------------------
@@ -742,52 +780,6 @@ def add_strips(gt: Gtable) -> Gtable:
     return gt
 
 
-def _pad_to_canonical(gt: Gtable) -> Gtable:
-    """Insert zero-sized rows/cols so the panel sits at (PANEL_ROW, PANEL_COL).
-
-    .. note::
-
-       This function has no counterpart in R. It exists to bridge an
-       **upstream** gap: ``ggplot2_py.ggplotGrob`` currently emits a
-       leaner gtable than R's ``ggplot2::ggplotGrob`` — specifically,
-       it omits the zero-height/width padding rows/cols that R adds
-       around the panel (subtitle-gap, caption-gap, guide-gap cells
-       etc.). Patchwork's layout constants (``PANEL_ROW=10``,
-       ``PANEL_COL=8`` etc. from ``_constants.py``) assume R's 18×15
-       shape. Without this pad the canonical indices in ``add_guides``,
-       ``add_strips``, ``_simplify_free`` / ``_simplify_fixed`` point
-       at the wrong cells.
-
-       The *correct* long-term fix is in **ggplot2_py** — make its
-       ``ggplotGrob`` emit the same 18×15 layout that R does. Once
-       that's done, every ``_pad_to_canonical(gt)`` call in this file
-       becomes a no-op and can be removed. Until then, removing it
-       here would silently break every composed plot.
-    """
-    panel = find_panel(gt)
-    # Pad rows above the panel so panel row reaches PANEL_ROW.
-    top_pad = PANEL_ROW - panel["t"]
-    for _ in range(max(0, top_pad)):
-        gt = gtable_add_rows(gt, Unit([0], ["mm"]), 0)
-
-    # Pad rows below the panel so total rows reach TABLE_ROWS.
-    bottom_pad = TABLE_ROWS - len(gt.heights.values)
-    for _ in range(max(0, bottom_pad)):
-        gt = gtable_add_rows(gt, Unit([0], ["mm"]))
-
-    # Pad cols left of the panel so panel col reaches PANEL_COL.
-    panel = find_panel(gt)
-    left_pad = PANEL_COL - panel["l"]
-    for _ in range(max(0, left_pad)):
-        gt = gtable_add_cols(gt, Unit([0], ["mm"]), 0)
-
-    # Pad cols right of the panel so total cols reach TABLE_COLS.
-    right_pad = TABLE_COLS - len(gt.widths.values)
-    for _ in range(max(0, right_pad)):
-        gt = gtable_add_cols(gt, Unit([0], ["mm"]))
-    return gt
-
-
 def _find_strip_pos(gt: Gtable) -> str:
     panel_loc = find_panel(gt)
     names = gt.layout["name"]
@@ -804,113 +796,60 @@ def _find_strip_pos(gt: Gtable) -> str:
 
 
 def add_guides(gt: Gtable, collect: bool = False) -> Gtable:
-    """Allocate rows/columns for the guide-box (and optionally collect guides).
+    """Optionally collect guide-boxes for shared rendering by patchwork.
 
-    Port of R's ``add_guides`` (``R/plot_patchwork.R:979-1061``). Two
-    branches mirror the two ggplot2 ABIs:
-
-    - ``len(guide_ind) == 5``: ggplot2 ≥ 3.5 shipped one cell per
-      position (left/right/top/bottom/inside). Zero the gap cells on
-      every collected side and pull the inner ``guides`` grobs out.
-    - ``len(guide_ind) <= 1``: ggplot2 < 3.5 shipped a single guide
-      box. Detect its position from its layout row vs the panel's,
-      then insert the canonical +/-2 gap rows/cols so the canonical
-      layout indices line up with :data:`PANEL_ROW` / :data:`PANEL_COL`.
+    Port of R's ``add_guides`` (``R/plot_patchwork.R:979-1061``). The
+    R function had a fork on the ggplot2 ABI: ``len(guide_ind) == 5``
+    for ggplot2 ≥ 3.5 (one cell per position) vs the legacy single
+    guide-box for ggplot2 < 3.5. ggplot2_py only ever emits the modern
+    5-cell layout (verified across plain / faceted / multi-guide
+    fixtures), so the legacy branch was unreachable and has been
+    removed. If a future ggplot2_py emits something else, this will
+    raise rather than silently produce a misaligned plot.
     """
-    panel_loc = find_panel(gt)
     guide_ind = [i for i, n in enumerate(gt.layout["name"]) if "guide-box" in n]
-
-    # ------------------------------------------------ ggplot2 ≥ 3.5 path
-    if len(guide_ind) == 5:
-        # R plot_patchwork.R:983-988: without collection the guide cells
-        # already live in the right layout spots; nothing to do.
-        if not collect:
-            return gt
-        # R:991 — strip the "guide-box-" prefix to get the side name.
-        guide_positions = [
-            gt.layout["name"][i].replace("guide-box-", "") for i in guide_ind
-        ]
-        for idx, pos in zip(guide_ind, guide_positions):
-            # R:994 — space_pos is +1 for left/top (gap cell is one
-            # column/row *after* the guide) and -1 for right/bottom (gap
-            # cell is one *before* the guide).
-            if pos in ("left", "right"):
-                col = gt.layout["l"][idx]
-                col_mod = 1 if pos == "left" else -1
-                gt.widths = _set_unit_value(gt.widths, col - 1, 0, "mm")
-                gt.widths = _set_unit_value(gt.widths, col - 1 + col_mod, 0, "mm")
-            elif pos in ("top", "bottom"):
-                row = gt.layout["t"][idx]
-                row_mod = 1 if pos == "top" else -1
-                gt.heights = _set_unit_value(gt.heights, row - 1, 0, "mm")
-                gt.heights = _set_unit_value(gt.heights, row - 1 + row_mod, 0, "mm")
-
-        # R:1003-1007 — collect the inner "guides" grobs across all
-        # guide-box cells.
-        collection = []
-        for idx in guide_ind:
-            box = gt.grobs[idx]
-            if hasattr(box, "grobs") and hasattr(box, "layout"):
-                for j, n in enumerate(box.layout.get("name", [])):
-                    if "guides" in n:
-                        collection.append(box.grobs[j])
-        set_attr(gt, "collected_guides", collection)
-        gt = _drop_indices(gt, guide_ind)
-        return gt
-
-    # ------------------------------------------------ ggplot2 < 3.5 path
-    # R plot_patchwork.R:1016-1034 — derive guide_pos from the one guide
-    # box's position relative to the panel.
     if not guide_ind:
-        guide_pos = "none"
-    else:
-        idx = guide_ind[0]
-        g = gt.layout
-        if (
-            g["t"][idx] == panel_loc["t"]
-            and g["b"][idx] == panel_loc["b"]
-            and g["l"][idx] == panel_loc["l"]
-            and g["r"][idx] == panel_loc["r"]
-        ):
-            guide_pos = "inside"
-        elif g["t"][idx] == panel_loc["t"]:
-            guide_pos = "left" if panel_loc["l"] > g["l"][idx] else "right"
-        else:
-            guide_pos = "top" if panel_loc["t"] > g["t"][idx] else "bottom"
+        return gt
+    if len(guide_ind) != 5:
+        raise RuntimeError(
+            f"add_guides expected 5 guide-box cells (ggplot2 modern ABI), got "
+            f"{len(guide_ind)}. ggplot2_py upstream may have changed; verify "
+            "guide-box layout before adapting."
+        )
+    # R plot_patchwork.R:983-988: without collection the guide cells
+    # already live in the right layout spots; nothing to do.
+    if not collect:
+        return gt
+    # R:991 — strip the "guide-box-" prefix to get the side name.
+    guide_positions = [
+        gt.layout["name"][i].replace("guide-box-", "") for i in guide_ind
+    ]
+    for idx, pos in zip(guide_ind, guide_positions):
+        # R:994 — space_pos is +1 for left/top (gap cell is one
+        # column/row *after* the guide) and -1 for right/bottom (gap
+        # cell is one *before* the guide).
+        if pos in ("left", "right"):
+            col = gt.layout["l"][idx]
+            col_mod = 1 if pos == "left" else -1
+            gt.widths = _set_unit_value(gt.widths, col - 1, 0, "mm")
+            gt.widths = _set_unit_value(gt.widths, col - 1 + col_mod, 0, "mm")
+        elif pos in ("top", "bottom"):
+            row = gt.layout["t"][idx]
+            row_mod = 1 if pos == "top" else -1
+            gt.heights = _set_unit_value(gt.heights, row - 1, 0, "mm")
+            gt.heights = _set_unit_value(gt.heights, row - 1 + row_mod, 0, "mm")
 
-    # R:1035-1046 — insert two zero-sized cells on every side the guide
-    # is NOT occupying, so every ggplot has the canonical 18×15 shape.
-    if guide_pos != "right":
-        gt = gtable_add_cols(gt, Unit([0, 0], ["mm", "mm"]), panel_loc["r"] + 3)
-    if guide_pos != "left":
-        gt = gtable_add_cols(gt, Unit([0, 0], ["mm", "mm"]), panel_loc["l"] - 4)
-    if guide_pos != "bottom":
-        gt = gtable_add_rows(gt, Unit([0, 0], ["mm", "mm"]), panel_loc["b"] + 5)
-    if guide_pos != "top":
-        gt = gtable_add_rows(gt, Unit([0, 0], ["mm", "mm"]), panel_loc["t"] - 4)
-
-    # R:1047-1059 — when collecting, extract the guide grob then zero
-    # its two surrounding gap cells. Re-read guide_loc from gt.layout
-    # since the gtable_add_rows/cols above can shift indices.
-    if collect and guide_pos != "none":
-        idx = guide_ind[0]
-        grob = gt.grobs[idx]
-        guide_loc = {k: gt.layout[k][idx] for k in ("t", "l", "b", "r")}
-        space_pos = 1 if guide_pos in ("left", "top") else -1
-        if guide_pos in ("right", "left"):
-            gt.widths = _set_unit_value(gt.widths, guide_loc["l"] - 1, 0, "mm")
-            gt.widths = _set_unit_value(gt.widths, guide_loc["l"] - 1 + space_pos, 0, "mm")
-        elif guide_pos in ("bottom", "top"):
-            gt.heights = _set_unit_value(gt.heights, guide_loc["t"] - 1, 0, "mm")
-            gt.heights = _set_unit_value(gt.heights, guide_loc["t"] - 1 + space_pos, 0, "mm")
-
-        collected = []
-        if hasattr(grob, "grobs") and hasattr(grob, "layout"):
-            for j, n in enumerate(grob.layout.get("name", [])):
+    # R:1003-1007 — collect the inner "guides" grobs across all
+    # guide-box cells.
+    collection = []
+    for idx in guide_ind:
+        box = gt.grobs[idx]
+        if hasattr(box, "grobs") and hasattr(box, "layout"):
+            for j, n in enumerate(box.layout.get("name", [])):
                 if "guides" in n:
-                    collected.append(grob.grobs[j])
-        set_attr(gt, "collected_guides", collected)
-        gt = _drop_indices(gt, guide_ind)
+                    collection.append(box.grobs[j])
+    set_attr(gt, "collected_guides", collection)
+    gt = _drop_indices(gt, guide_ind)
     return gt
 
 
@@ -1099,26 +1038,36 @@ def _simplify_free(gt: Gtable, gt_new: Gtable, panels: Gtable, rows, cols) -> Gt
         )
     else:
         # R: ``simplify_free`` else-branch (plot_patchwork.R:466-489).
-        # R wraps each above/below row's panel-area grobs into a single
-        # gtable WITH a viewport so the inner content auto-sizes to its
-        # natural height. The Python rendering pipeline pre-resolves
-        # viewport heights before the inner gtable's grobs are in scope,
-        # which collapses lazy ``grobheight`` units to 0 and erases the
-        # title/strips/axis labels. Skipping the wrapper viewport keeps
-        # the layout-name structure R-faithful (one combined cell per
-        # row, named via paste0(layout$name, collapse=", ")) while
-        # letting the inner gtable's own widths/heights resolve normally
-        # against the parent cell — which is what we visually need.
+        # R wraps each above/below row's panel-area grobs in a viewport
+        # (``viewport(y = 0/1, just = 'bottom'/'top', height = table$heights)``)
+        # so the row's content sits flush against the side closest to
+        # the panel. Mirror it directly — `table.heights` is a single-
+        # element Unit; ``Viewport(height=...)`` resolves it via the
+        # inner gtable's own grob context the same way R's grid does.
         for i in range(1, len(gt.heights.values) + 1):
             if i >= rows[0]:
                 if i <= rows[1]:
                     continue
                 ii = i - (rows[1] - rows[0])
+                pos = "bottom"
             else:
                 ii = i
+                pos = "top"
             table = gt[i - 1:i, p_cols[0] - 1:p_cols[-1]]
             if table.grobs:
                 grobname = _paste_layout_names(table)
+                if pos == "top":
+                    table.vp = Viewport(
+                        y=Unit([0.0], ["npc"]),
+                        just=["centre", "bottom"],
+                        height=table.heights,
+                    )
+                else:
+                    table.vp = Viewport(
+                        y=Unit([1.0], ["npc"]),
+                        just=["centre", "top"],
+                        height=table.heights,
+                    )
                 gt_new = gtable_add_grob(
                     gt_new, table,
                     t=ii, l=cols[0], clip="off",
@@ -1924,7 +1873,17 @@ def set_panel_dimensions(
                     if heights_values[row] != -1.0 else panel_heights[i]
                 heights_units[row] = panel_heights_units[i]
 
-    # Step 2 — fixed-aspect respect matrix.
+    # Step 2 — fixed-aspect respect matrix. Mirrors R plot_patchwork.R:1114-1162.
+    # For each plot with ``fixed_asp``, we reach INTO the simplified
+    # gtable and pull the inner ``panel; …`` grob's own widths/heights
+    # at its content cells (R: ``panels[[i]]$grobs[[panel_ind]]$widths[…]``).
+    # That inner grob — the ``panels`` gtable produced by ``simplify_fixed``
+    # — carries the panel's natural null-unit ratio (e.g. 1null × 1.42null
+    # for ``coord_fixed``). The OUTER simplified gtable's panel cell is
+    # always ``0mm`` for non-absolute panels, so reading from there (the
+    # prior Python implementation) collapsed the ratio and dropped the
+    # respect-mat write-back, leaving the master gtable's panel row at
+    # 1null and forcing every chrome-merged grob to fight for space.
     respect_matrix = None
     has_unset_width = any(_is_unset_width(i) for i in range(len(widths_values)))
     has_unset_height = any(_is_unset_height(i) for i in range(len(heights_values)))
@@ -1933,40 +1892,137 @@ def set_panel_dimensions(
     if has_unset_width and has_unset_height and any_fixed:
         respect_matrix = np.zeros((len(gt.heights.values), len(gt.widths.values)), dtype=int)
 
-        # Build list of candidate fixed areas: single-cell, all-null across
-        # rows and cols, from plots with fixed_asp.
-        fixed_indices = [i for i, f in enumerate(fixed_asp) if bool(f)]
-        candidates: list[tuple[int, list[int], list[int], float, float]] = []
-        for i in fixed_indices:
-            if i >= len(panels) or i >= len(design):
+        # Build fixed_areas per R: lapply(which(fixed_asp), function(i) {rows=t:b, cols=l:r})
+        # then filter by can_fix (single row), can_fix_row (all nulls),
+        # can_fix_col (all nulls). R uses ``length(x$cols)`` (truthy >0)
+        # for can_fix; we mirror that lenient rule.
+        fixed_indices_all = [i for i, f in enumerate(fixed_asp) if bool(f)]
+        fixed_areas: list[tuple[int, list[int], list[int]]] = []  # (plot_i, rows_1b, cols_1b)
+        for i in fixed_indices_all:
+            if i >= len(design):
                 continue
             rec = design[i]
-            rows = list(range(rec["t"] - 1, rec["b"]))
-            cols = list(range(rec["l"] - 1, rec["r"]))
-            if len(rows) != 1 or len(cols) != 1:
+            rows = list(range(rec["t"], rec["b"] + 1))  # 1-based inclusive
+            cols = list(range(rec["l"], rec["r"] + 1))
+            if len(rows) != 1 or len(cols) < 1:
                 continue
-            # All the covered rows/cols must still be unset (null).
-            if not all(_is_unset_width(c) for c in cols):
+            if not all(_is_unset_width(c - 1) for c in cols):
                 continue
-            if not all(_is_unset_height(r) for r in rows):
+            if not all(_is_unset_height(r - 1) for r in rows):
                 continue
-            w = panel_widths[i]
-            h = panel_heights[i]
-            if w == 0 or h == 0:
-                continue
-            candidates.append((i, rows, cols, w, h))
+            fixed_areas.append((i, rows, cols))
 
-        # Apply fixed-aspect constraints in a stable order.
-        for _, rows, cols, w, h in candidates:
+        # controls_dim: this fixed area is the only one occupying any of
+        # its rows or cols (R: all(all_fixed_rows[a$rows] == 1) || ...).
+        all_fixed_rows: dict[int, int] = {}
+        all_fixed_cols: dict[int, int] = {}
+        for _, rows, cols in fixed_areas:
+            for r in rows:
+                all_fixed_rows[r] = all_fixed_rows.get(r, 0) + 1
             for c in cols:
-                widths_values[c] = w
-                widths_units[c] = panel_widths_units[fixed_indices[0]]  # unit doesn't really matter for null
-            for r in rows:
-                heights_values[r] = h
-                heights_units[r] = panel_heights_units[fixed_indices[0]]
-            for r in rows:
+                all_fixed_cols[c] = all_fixed_cols.get(c, 0) + 1
+        controls_dim = [
+            all(all_fixed_rows.get(r, 0) == 1 for r in rows)
+            or all(all_fixed_cols.get(c, 0) == 1 for c in cols)
+            for _, rows, cols in fixed_areas
+        ]
+        # R: order(controls_dim) sorts ascending (False=0 first).
+        process_order = sorted(range(len(fixed_areas)),
+                               key=lambda k: int(controls_dim[k]))
+
+        for idx in process_order:
+            plot_i, rows, cols = fixed_areas[idx]
+            if plot_i >= len(panels):
+                continue
+            p = panels[plot_i]
+            # Find first layout entry containing 'panel' in its name.
+            panel_ind = next(
+                (k for k, name in enumerate(p.layout["name"]) if "panel" in name),
+                None,
+            )
+            if panel_ind is None or panel_ind >= len(p.grobs):
+                continue
+            inner_grob = p.grobs[panel_ind]
+            # Only Gtable inner grobs carry widths/heights (the
+            # ``simplify_fixed`` path always produces one).
+            if not isinstance(inner_grob, Gtable):
+                continue
+            inner_layout = inner_grob.layout
+            if not inner_layout.get("l"):
+                continue
+            content_l = min(inner_layout["l"])
+            content_r = max(inner_layout["r"])
+            content_t = min(inner_layout["t"])
+            content_b = max(inner_layout["b"])
+            # R: inner_grob$widths[content_cols[1]:content_cols[2]] is a
+            # Unit slice spanning content_l..content_r (inclusive, 1-based).
+            inner_widths = inner_grob.widths
+            inner_heights = inner_grob.heights
+            if (
+                content_l < 1 or content_r > len(inner_widths.values)
+                or content_t < 1 or content_b > len(inner_heights.values)
+            ):
+                continue
+            w_unit = inner_widths[content_l - 1:content_r]
+            h_unit = inner_heights[content_t - 1:content_b]
+
+            # R's can_set_* re-checks the dynamic state (cells may have
+            # been written by a prior iteration); _is_unset_* gives the
+            # same answer because Python keeps widths_values/units in sync.
+            can_set_width = (
+                all(_is_unset_width(c - 1) for c in cols)
+                and len(w_unit) == 1
+                and len(h_unit) == 1
+            )
+            can_set_height = (
+                all(_is_unset_height(r - 1) for r in rows)
+                and len(w_unit) == 1
+                and len(h_unit) == 1
+            )
+            will_be_fixed = True
+            if can_set_width and can_set_height:
+                w_val = float(w_unit.values[0])
+                w_u = w_unit.units_list[0]
+                h_val = float(h_unit.values[0])
+                h_u = h_unit.units_list[0]
                 for c in cols:
-                    respect_matrix[height_indices[r], width_indices[c]] = 1
+                    widths_values[c - 1] = w_val
+                    widths_units[c - 1] = w_u
+                for r in rows:
+                    heights_values[r - 1] = h_val
+                    heights_units[r - 1] = h_u
+            elif can_set_width:
+                # widths[cols] <- heights[rows] * (w/h) (R line 1148)
+                w_val = float(w_unit.values[0])
+                h_val = float(h_unit.values[0])
+                if h_val == 0:
+                    will_be_fixed = False
+                else:
+                    ratio = w_val / h_val
+                    for c in cols:
+                        for r in rows:
+                            widths_values[c - 1] = heights_values[r - 1] * ratio
+                            widths_units[c - 1] = heights_units[r - 1]
+            elif can_set_height:
+                # heights[rows] <- widths[cols] * (h/w) (R line 1151)
+                w_val = float(w_unit.values[0])
+                h_val = float(h_unit.values[0])
+                if w_val == 0:
+                    will_be_fixed = False
+                else:
+                    ratio = h_val / w_val
+                    for r in rows:
+                        for c in cols:
+                            heights_values[r - 1] = widths_values[c - 1] * ratio
+                            heights_units[r - 1] = widths_units[c - 1]
+            else:
+                will_be_fixed = False
+
+            if will_be_fixed:
+                for r in rows:
+                    for c in cols:
+                        respect_matrix[height_indices[r - 1],
+                                       width_indices[c - 1]] = 1
 
         if not respect_matrix.any():
             respect_matrix = None

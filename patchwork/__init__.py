@@ -55,7 +55,7 @@ def _register_patchwork_cross_module_dispatch() -> None:
     """
     from .add_plot import Patchwork, PlotFiller, is_empty
     from .annotation import has_tag
-    from .core import patchworkGrob
+    from .core import as_gtable, patchworkGrob
     from .wrap_elements import as_patch
 
     @as_patch.register(Patchwork)
@@ -78,6 +78,12 @@ def _register_patchwork_cross_module_dispatch() -> None:
         ``recurse_tags`` will try to tag via ``x + labs(tag=...)``."""
         return not is_empty(x)
 
+    @as_gtable.register(Patchwork)
+    def _(x: Patchwork):  # noqa: F811
+        """R ``as.gtable.patchwork`` → ``patchworkGrob(x)`` (one-line
+        method in plot_patchwork.R)."""
+        return patchworkGrob(x)
+
 
 _register_patchwork_cross_module_dispatch()
 
@@ -86,6 +92,7 @@ from ._patch import patch_grob, patchGrob  # noqa: E402
 from .add_plot import Patchwork  # noqa: E402
 from .annotation import plot_annotation  # noqa: E402
 from .core import (  # noqa: E402
+    as_gtable,
     patchwork_grob,
     patchworkGrob,
     plot_table,
@@ -121,6 +128,7 @@ __all__ = [
     "align_patches",
     "align_plots",
     "area",
+    "as_gtable",
     "as_patch",
     "as_patch_formula",
     "as_patch_gt_tbl",
