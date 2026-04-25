@@ -304,40 +304,37 @@ def _resolve(x: Any) -> Grob:
 
 
 def _set_height(table: Gtable, row: int, value) -> None:
-    """Replace a single height in *table* with *value* (mm unit)."""
-    values = list(table.heights.values)
-    units = list(table.heights.units_list)
-    values[row - 1] = value.values[0] if hasattr(value, "values") else value
-    units[row - 1] = (
-        value.units_list[0] if hasattr(value, "units_list") else units[row - 1]
-    )
+    """R: ``table$heights[row] <- value`` — single-entry replacement.
+
+    Use :py:meth:`grid_py.Unit.__setitem__` so neighbouring entries keep
+    their ``data`` (lazy grobwidth/grobheight grob refs); rebuilding the
+    Unit from raw values would silently drop them.
+    """
     from grid_py import Unit
 
-    table.heights = Unit(values, units)
+    if hasattr(value, "values") and hasattr(value, "units_list"):
+        rhs = value[0:1] if len(value) > 0 else value
+    else:
+        rhs = Unit([float(value)], ["mm"])
+    heights = table.heights.copy()
+    heights[row - 1] = rhs
+    table.heights = heights
 
 
 def _copy_row_height(dst: Gtable, src: Gtable, dst_row: int, src_row: int) -> None:
     if src_row < 1 or src_row > len(src.heights.values):
         return
-    values = list(dst.heights.values)
-    units = list(dst.heights.units_list)
-    values[dst_row - 1] = src.heights.values[src_row - 1]
-    units[dst_row - 1] = src.heights.units_list[src_row - 1]
-    from grid_py import Unit
-
-    dst.heights = Unit(values, units)
+    heights = dst.heights.copy()
+    heights[dst_row - 1] = src.heights[src_row - 1:src_row]
+    dst.heights = heights
 
 
 def _copy_col_width(dst: Gtable, src: Gtable, dst_col: int, src_col: int) -> None:
     if src_col < 1 or src_col > len(src.widths.values):
         return
-    values = list(dst.widths.values)
-    units = list(dst.widths.units_list)
-    values[dst_col - 1] = src.widths.values[src_col - 1]
-    units[dst_col - 1] = src.widths.units_list[src_col - 1]
-    from grid_py import Unit
-
-    dst.widths = Unit(values, units)
+    widths = dst.widths.copy()
+    widths[dst_col - 1] = src.widths[src_col - 1:src_col]
+    dst.widths = widths
 
 
 def _place_tag(table: Gtable, tag: Grob, tag_pos: str) -> Gtable:

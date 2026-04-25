@@ -406,16 +406,15 @@ def retrofit_rows(gt: Gtable, rows: Sequence[int], pattern: str = "axis") -> Gta
         if not grobs_in_row:
             continue
         if all(pattern in n for n in names_in_row):
-            try:
-                size = max_height(grobs_in_row)
-            except Exception:
-                continue
-            values = list(gt.heights.values)
-            units = list(gt.heights.units_list)
+            # R: ``gt$heights[row] <- size`` (collect_axes.R:174) — single-
+            # entry replacement via ``[<-.unit`` preserves the rest of the
+            # ``data`` array. Native :py:meth:`grid_py.Unit.__setitem__`
+            # gives the same R-faithful semantics.
+            size = max_height(grobs_in_row)
             if isinstance(size, Unit):
-                values[row - 1] = size.values[0]
-                units[row - 1] = size.units_list[0]
-            gt.heights = Unit(values, units)
+                heights = gt.heights.copy()
+                heights[row - 1] = size[0:1]
+                gt.heights = heights
     return gt
 
 
@@ -435,16 +434,12 @@ def retrofit_cols(gt: Gtable, cols: Sequence[int], pattern: str = "axis") -> Gta
         if not grobs_in_col:
             continue
         if all(pattern in n for n in names_in_col):
-            try:
-                size = max_width(grobs_in_col)
-            except Exception:
-                continue
-            values = list(gt.widths.values)
-            units = list(gt.widths.units_list)
+            # R: ``gt$widths[col] <- size`` (collect_axes.R:205).
+            size = max_width(grobs_in_col)
             if isinstance(size, Unit):
-                values[col - 1] = size.values[0]
-                units[col - 1] = size.units_list[0]
-            gt.widths = Unit(values, units)
+                widths = gt.widths.copy()
+                widths[col - 1] = size[0:1]
+                gt.widths = widths
     return gt
 
 
@@ -482,18 +477,18 @@ def delete_grobs(gt: Gtable, idx: Sequence[int], resize: bool = True) -> Gtable:
 
     rows_to_zero = [r for r in resize_rows if r not in used_rows]
     cols_to_zero = [c for c in resize_cols if c not in used_cols]
+    # R: ``gt$heights[rows] <- unit(0, "pt")`` (collect_axes.R behaviour) —
+    # native ``[<-.unit`` keeps every other entry's ``data`` intact.
     if rows_to_zero:
-        values = list(gt.heights.values)
-        units = list(gt.heights.units_list)
+        zero = Unit([0.0], ["pt"])
+        heights = gt.heights.copy()
         for r in rows_to_zero:
-            values[r - 1] = 0.0
-            units[r - 1] = "pt"
-        gt.heights = Unit(values, units)
+            heights[r - 1] = zero
+        gt.heights = heights
     if cols_to_zero:
-        values = list(gt.widths.values)
-        units = list(gt.widths.units_list)
+        zero = Unit([0.0], ["pt"])
+        widths = gt.widths.copy()
         for c in cols_to_zero:
-            values[c - 1] = 0.0
-            units[c - 1] = "pt"
-        gt.widths = Unit(values, units)
+            widths[c - 1] = zero
+        gt.widths = widths
     return gt

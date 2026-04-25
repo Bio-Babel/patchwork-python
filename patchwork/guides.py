@@ -71,13 +71,19 @@ def _canon_units_on(obj: Any) -> Any:
 def unname_grob(x: Any) -> Any:
     """Strip identifying names from a grob / gtable tree and canonicalize style.
 
-    Equivalent semantics to R's ``unname_grob``: names, per-child names and
-    viewport names are zeroed so two visually identical guides compare equal
-    after the walk. ``gp$col`` / ``gp$fill`` are routed through
-    :func:`canonicalize_colour`.
+    Mirrors R's ``unname_grob`` (R/guides.R:21-49). R's ``x$name <- ''``
+    semantics work on a local copy because R passes by value; Python
+    needs an explicit ``copy.deepcopy`` so the upstream ``collapse_guides``
+    list keeps the originals intact (``collapse_guides`` reads
+    ``unnamed[i]`` only for structural equality, not as a replacement).
+    Without the copy, the *original* legend gtables get their ``name``
+    field zeroed, which then breaks downstream draw-time viewport setup.
     """
     if x is None:
         return x
+    import copy as _copy
+    x = _copy.deepcopy(x)
+
     if is_gtable(x):
         try:
             x.name = ""
@@ -222,10 +228,18 @@ def guides_build(guides: Sequence[Any], theme) -> Gtable:
     widths = _unit_c(*(gtable_width(g) for g in guides))
     heights = _unit_c(*(gtable_height(g) for g in guides))
 
-    just = valid_just(calc_element("legend.box.just", theme))
+    # R: ``Guides$package_box`` (guides-.R:603-607) defaults
+    # ``legend.box.just`` based on direction when the theme element is
+    # missing. ``vertical`` → ``c("left", "top")``;
+    # ``horizontal`` → ``c("center", "top")``.
+    box_layout = calc_element("legend.box", theme)
+    vert = box_layout == "horizontal"
+    box_just_raw = calc_element("legend.box.just", theme)
+    if box_just_raw is None:
+        box_just_raw = ("center", "top") if vert else ("left", "top")
+    just = valid_just(box_just_raw)
     xjust = just[0]
     yjust = just[1]
-    vert = calc_element("legend.box", theme) == "horizontal"
 
     new_guides = []
     for g in guides:
@@ -434,11 +448,18 @@ def attach_guides(
 
 
 def _slice_unit(u: Unit, idx_range) -> Unit:
-    vals = [u.values[i] for i in idx_range]
-    units = [u.units_list[i] for i in idx_range]
-    if not vals:
+    """R: ``u[indices]`` — index a Unit with a list of 0-based positions.
+
+    Native :py:meth:`grid_py.Unit.__getitem__` preserves the per-entry
+    ``data`` array (the grob references that lazy ``grobwidth`` /
+    ``grobheight`` / compound ``sum`` units rely on at draw time).
+    Building a fresh ``Unit(values, units)`` from list-of-values would
+    drop those references and silently collapse the entry to 0 mm.
+    """
+    indices = list(idx_range)
+    if not indices:
         return Unit([0], ["mm"])
-    return Unit(vals, units)
+    return u[indices]
 
 
 def set_border_sizes(
@@ -450,38 +471,36 @@ def set_border_sizes(
 ) -> Gtable:
     """Overwrite border widths/heights of a gtable tree.
 
-    Minimal port of R's ``set_border_sizes`` — the R version recurses into
-    nested ``gtable_patchwork`` grobs; we keep the same recursion here.
+    Port of R's ``set_border_sizes``. R writes ``gt$widths[1:n] <- new``
+    via ``[<-.unit`` (unit.R:454) which preserves the right-hand side
+    Unit's ``data`` (grob refs for lazy units).  Mirror that by
+    delegating to :py:meth:`grid_py.Unit.__setitem__` instead of
+    rebuilding the full Unit from a values/units list (which would drop
+    ``data`` entries).
     """
     if l is None and r is None and t is None and b is None:
         return gt
     from ._gtable_state import has_class
 
-    widths_values = list(gt.widths.values)
-    widths_units = list(gt.widths.units_list)
+    widths = gt.widths.copy()
     if l is not None:
-        for i, (v, u) in enumerate(zip(l.values, l.units_list)):
-            widths_values[i] = v
-            widths_units[i] = u
+        for i in range(len(l)):
+            widths[i] = l[i:i + 1]
     if r is not None:
-        offset = len(widths_values) - len(r.values)
-        for i, (v, u) in enumerate(zip(r.values, r.units_list)):
-            widths_values[offset + i] = v
-            widths_units[offset + i] = u
-    gt.widths = Unit(widths_values, widths_units)
+        offset = len(widths) - len(r)
+        for i in range(len(r)):
+            widths[offset + i] = r[i:i + 1]
+    gt.widths = widths
 
-    heights_values = list(gt.heights.values)
-    heights_units = list(gt.heights.units_list)
+    heights = gt.heights.copy()
     if t is not None:
-        for i, (v, u) in enumerate(zip(t.values, t.units_list)):
-            heights_values[i] = v
-            heights_units[i] = u
+        for i in range(len(t)):
+            heights[i] = t[i:i + 1]
     if b is not None:
-        offset = len(heights_values) - len(b.values)
-        for i, (v, u) in enumerate(zip(b.values, b.units_list)):
-            heights_values[offset + i] = v
-            heights_units[offset + i] = u
-    gt.heights = Unit(heights_values, heights_units)
+        offset = len(heights) - len(b)
+        for i in range(len(b)):
+            heights[offset + i] = b[i:i + 1]
+    gt.heights = heights
 
     # Recurse into nested patchwork gtables.
     for i, grob in enumerate(gt.grobs):
