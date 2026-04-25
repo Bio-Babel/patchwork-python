@@ -1,28 +1,28 @@
-"""``wrap_table()`` — compose a table into a patchwork.
+"""``wrap_table()`` — compose a ``great_tables.GT`` table into a patchwork.
 
-The R API accepts a ``gt_tbl`` object; ``gt`` has no Python port so the
-Python variant accepts a ``pandas.DataFrame`` or a pre-built
-``gtable_py.Gtable`` instead. Any input that *looks* like a ``gt_tbl``
-(an object with both ``_stub_df`` and ``_options`` attributes) raises
-``NotImplementedError``.
-
-See ``port_reports/patchwork/02_feature_checklist.md`` for the deviation
-rationale (essentials §4).
+R reference: ``patchwork::wrap_table`` + ``as_patch.gt_tbl`` +
+``patchGrob.wrapped_table`` (R/wrap_table.R). The R API requires a
+``gt_tbl``; we mirror that contract exactly with ``great_tables.GT``.
+A pandas ``DataFrame`` is accepted as a one-liner sugar that
+auto-promotes via ``GT(df)`` — same shape as R's
+``gt::gt(as.data.frame(table))`` fallback.
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal, Sequence, Tuple, Union
+from typing import Any, Literal, Tuple, Union
 
 import pandas as pd
+
 from grid_py import Unit, Viewport, convert_height, convert_width, unit_c
-from gtable_py import Gtable, is_gtable
+from gtable_py import Gtable
 
 from ._constants import PANEL_COL, PANEL_ROW
+from ._gt_bridge import gt_as_gtable, is_great_tables_gt
 from ._gtable_state import add_class
 from ._patch import patch_grob
 from ._utils import arg_match, is_abs_unit
-from .wrap_elements import WrappedPatch, wrap_elements
+from .wrap_elements import WrappedPatch, as_patch, wrap_elements
 
 __all__ = ["WrappedTable", "wrap_table"]
 
@@ -31,103 +31,104 @@ SpaceChoice = Literal["free", "free_x", "free_y", "fixed"]
 
 
 class WrappedTable(WrappedPatch):
-    """A wrapped-table patch built from a ``DataFrame`` or a ``Gtable``."""
+    """A wrapped-table patch built from a ``great_tables.GT`` instance."""
 
 
-def _dataframe_to_gtable(df: pd.DataFrame) -> Gtable:
-    """Convert a ``DataFrame`` to a basic ``Gtable`` suitable for wrapping.
+def _coerce_to_gt(table: Any) -> Any:
+    """Promote *table* to ``great_tables.GT`` mirroring R's fallback.
 
-    This is intentionally minimal — a gt-quality renderer is out of scope
-    (would be its own port). We build a gtable whose single panel cell
-    holds a textual representation of *df*. Callers wanting polished
-    tables should precompose a gtable with ``gtable_py`` and pass that
-    gtable in directly.
+    R: ``if (!inherits(table, "gt_tbl")) table <- gt::gt(as.data.frame(table))``
+    (R/wrap_table.R:64-69). Python accepts ``GT`` directly or any object
+    coercible to ``pandas.DataFrame``.
     """
-    from grid_py import Unit, grob_height, grob_width, null_grob
-    from gtable_py import gtable_add_grob
+    if is_great_tables_gt(table):
+        return table
+    try:
+        from great_tables import GT
+    except ImportError as exc:
+        raise ImportError(
+            "wrap_table requires the great_tables package "
+            "(``pip install great_tables``)."
+        ) from exc
+    if isinstance(table, pd.DataFrame):
+        return GT(table)
+    try:
+        df = pd.DataFrame(table)
+    except Exception as exc:
+        raise TypeError(
+            f"Unable to convert input table (type {type(table).__name__}) "
+            "to great_tables.GT — supply a GT or DataFrame-like object."
+        ) from exc
+    return GT(df)
 
-    nrows, ncols = df.shape
-    widths = Unit([1.0] * (ncols + 1), ["null"] * (ncols + 1))
-    heights = Unit([1.0] * (nrows + 1), ["null"] * (nrows + 1))
-    gt = Gtable(widths=widths, heights=heights, name="table")
-    gt = gtable_add_grob(gt, null_grob(), t=1, l=1, b=1, r=ncols + 1, name="table_body")
-    # Mirror R's ``as_patch.gt_tbl`` (wrap_table.R:149-156):
-    #   grob$vp <- viewport(x = 0, y = 1,
-    #                       width  = grobWidth(grob),
-    #                       height = grobHeight(grob),
-    #                       default.units = "npc", just = c(0, 1))
-    # Width / height come from the actual grob dimensions, not a 1-npc
-    # fallback.
-    gt.vp = Viewport(
-        x=Unit([0.0], ["npc"]),
-        y=Unit([1.0], ["npc"]),
-        width=grob_width(gt),
-        height=grob_height(gt),
-        just=[0, 1],
+
+def _gt_n_row_headers(gt_obj: Any) -> int:
+    """Number of stub columns (row-header columns) in a GT.
+
+    R: ``n_row_headers <- (!all(is.na(table[["_stub_df"]]$row_id))) +
+                          (!all(is.na(table[["_stub_df"]]$group_id)))``
+    R/wrap_table.R:71-74.
+
+    great_tables exposes the same information via
+    ``Stub._get_stub_layout`` which returns a subset of
+    ``{"group_label", "rowname"}``. ``len(stub_layout)`` is exactly the
+    R count modulo the ``row_group_as_column`` option's de-duplication.
+    """
+    data = gt_obj._build_data(context="html")
+    stub_layout = data._stub._get_stub_layout(
+        has_summary_rows=False, options=data._options,
     )
-    return gt
+    n = len(stub_layout)
+    # R collapses the count to 1 when row_group_as_column is FALSE
+    # (R/wrap_table.R:75-77).
+    row_group_as_col = getattr(data._options, "row_group_as_column", None)
+    if (n == 2 and row_group_as_col is not None and
+            getattr(row_group_as_col, "value", row_group_as_col) is False):
+        n = 1
+    return n
 
 
 def wrap_table(
-    table: Union[pd.DataFrame, Gtable, Any],
+    table: Any,
     panel: PanelChoice = "body",
     space: SpaceChoice = "free",
     ignore_tag: bool = False,
 ) -> WrappedTable:
-    """Wrap a table in a patchwork-compliant patch.
+    """Wrap a ``great_tables.GT`` (or DataFrame) into a patchwork-compliant patch.
 
     Parameters
     ----------
-    table : pandas.DataFrame or gtable_py.Gtable
-        The table to embed. R's original API accepts a ``gt_tbl`` from
-        the ``gt`` package; ``gt`` has no Python port, so Python
-        callers supply a ``DataFrame`` or a pre-built gtable.
-    panel : {'body', 'full', 'rows', 'cols'}, default 'body'
-        Which portion of the table should be aligned with the panel region.
-    space : {'free', 'free_x', 'free_y', 'fixed'}, default 'free'
-        Whether the table's fixed dimensions should influence layout.
+    table : great_tables.GT or pandas.DataFrame (or DataFrame-coercible)
+        The table to embed. R's ``wrap_table`` accepts a ``gt_tbl``;
+        the Python contract requires :class:`great_tables.GT` for
+        feature parity (formatters, spanners, source notes, footnotes).
+        A bare DataFrame is auto-promoted via ``GT(df)`` — the same
+        sugar R's ``gt::gt(as.data.frame(table))`` provides.
+    panel : {'body', 'full', 'rows', 'cols'}, default ``'body'``
+        Which portion of the table aligns with the panel region.
+    space : {'free', 'free_x', 'free_y', 'fixed'}, default ``'free'``
+        Whether the table's fixed dimensions influence layout.
     ignore_tag : bool, default ``False``
         Skip auto-tagging for this patch.
 
     Returns
     -------
     WrappedTable
-        A composable patch.
 
-    Raises
-    ------
-    NotImplementedError
-        If *table* looks like a ``gt_tbl`` (has both ``_stub_df`` and
-        ``_options``). R's gt is out of scope for v0; see essentials §4.
+    Notes
+    -----
+    The full R panel-partition algorithm is ported in
+    :func:`apply_wrapped_table_adjustment`; it relies on the
+    ``table_body`` and ``table`` named regions emitted by
+    :func:`patchwork._gt_bridge.gt_as_gtable`.
     """
-    if hasattr(table, "_stub_df") and hasattr(table, "_options"):
-        raise NotImplementedError(
-            "`gt` has no Python port; `wrap_table` accepts a pandas.DataFrame "
-            "or a pre-built gtable_py.Gtable instead. See "
-            "https://gt.rstudio.com/ for the R behaviour we're intentionally "
-            "not replicating."
-        )
-
-    if isinstance(table, pd.DataFrame):
-        gtable = _dataframe_to_gtable(table)
-        n_row_headers = 1 if table.index.name is not None else 0
-    elif is_gtable(table):
-        gtable = table
-        n_row_headers = 0
-    else:
-        try:
-            df = pd.DataFrame(table)
-        except Exception as exc:  # pragma: no cover — pandas narrows this
-            raise TypeError(
-                "Unable to convert input table to pandas.DataFrame or gtable."
-            ) from exc
-        gtable = _dataframe_to_gtable(df)
-        n_row_headers = 1 if df.index.name is not None else 0
+    gt_obj = _coerce_to_gt(table)
+    n_row_headers = _gt_n_row_headers(gt_obj)
 
     panel_value = arg_match(panel, ("body", "full", "rows", "cols"), arg="panel")
     space_value = arg_match(space, ("free", "free_x", "free_y", "fixed"), arg="space")
 
-    wp = wrap_elements(full=gtable, ignore_tag=ignore_tag)
+    wp = wrap_elements(full=gt_obj, ignore_tag=ignore_tag)
     settings = wp.get_attr("patch_settings", {"clip": "on", "ignore_tag": ignore_tag})
     settings["panel"] = panel_value
     settings["n_row_headers"] = n_row_headers
@@ -138,36 +139,80 @@ def wrap_table(
     wp.set_attr("patch_settings", settings)
 
     wt = WrappedTable(plot=wp.plot, table=wp.table)
-    wt._attrs = wp._attrs  # copy private attrs dict
+    wt._attrs = wp._attrs  # carry private attrs dict
     add_class(wt.table, "wrapped_table")
     return wt
 
 
-def _set_unit_scalar(u: Unit, i: int, new: Unit) -> Unit:
-    """R: ``u[i] <- new`` — 1-based scalar replacement.
+# ---------------------------------------------------------------------------
+# as_patch.GT — analog of R ``as_patch.gt_tbl``
+# ---------------------------------------------------------------------------
 
-    Delegates to :py:meth:`grid_py.Unit.__setitem__` on a copy so
-    callers get a fresh Unit (the idiom here always immediately
-    reassigns to ``gt.widths`` / ``gt.heights``, so we don't mutate
-    the caller's original object). ``Unit.__setitem__`` correctly
-    preserves ``data`` for every position it isn't overwriting.
-    """
+
+def _register_gt_as_patch() -> None:
+    """Install ``as_patch.GT`` so ``wrap_elements(full=gt)`` resolves."""
+    try:
+        from great_tables import GT
+    except ImportError:
+        return  # great_tables not available; wrap_table will error earlier.
+
+    from grid_py import edit_grob, grob_height, grob_width
+
+    @as_patch.register(GT)
+    def _(x: GT, **kwargs: Any) -> Gtable:
+        """Port of R ``as_patch.gt_tbl`` (R/wrap_table.R:147-160).
+
+        Build the gtable, subset to just the ``table`` named region,
+        then set a viewport anchored at the top-left so the table
+        flows from there.
+        """
+        gtable = gt_as_gtable(x)
+        # Find the "table" named region's bounds.
+        names = list(gtable.layout["name"])
+        try:
+            idx = names.index("table")
+        except ValueError:
+            return gtable  # no table region — return as-is
+        t = gtable.layout["t"][idx]
+        l = gtable.layout["l"][idx]
+        b = gtable.layout["b"][idx]
+        r = gtable.layout["r"][idx]
+        # gtable_py accepts 0-based list indices for slicing.
+        sub = gtable[list(range(t - 1, b)), list(range(l - 1, r))]
+        # R: viewport(x=0, y=1, width=grobWidth(grob), height=grobHeight(grob),
+        #             default.units="npc", just=c(0,1))
+        sub.vp = Viewport(
+            x=Unit([0.0], ["npc"]),
+            y=Unit([1.0], ["npc"]),
+            width=grob_width(sub),
+            height=grob_height(sub),
+            just=[0, 1],
+        )
+        return sub
+
+
+_register_gt_as_patch()
+
+
+# ---------------------------------------------------------------------------
+# Unit helpers — R/Python parity for ``gt$widths[i]`` / ``Reduce(`+`, u)``
+# ---------------------------------------------------------------------------
+
+
+def _set_unit_scalar(u: Unit, i: int, new: Unit) -> Unit:
+    """R: ``u[i] <- new`` — 1-based scalar replacement preserving ``data``."""
     out = u.copy()
     out[i - 1] = new
     return out
 
 
 def _unit_slice(u: Unit, start: int, end: int) -> Unit:
-    """R: ``u[start:end]`` — 1-based inclusive slice; preserves ``data``."""
+    """R: ``u[start:end]`` — 1-based inclusive slice, preserves ``data``."""
     return u[start - 1:end]
 
 
 def _unit_drop_range(u: Unit, start: int, end: int) -> Unit:
-    """R: ``u[-seq(start, end)]`` — drop 1-based inclusive range.
-
-    Concatenates the prefix and suffix via :func:`grid_py.unit_c`;
-    both sides preserve ``data`` through native subscript.
-    """
+    """R: ``u[-seq(start, end)]`` — drop a 1-based inclusive range."""
     prefix = u[:start - 1]
     suffix = u[end:]
     if len(prefix) == 0:
@@ -178,25 +223,10 @@ def _unit_drop_range(u: Unit, start: int, end: int) -> Unit:
 
 
 def _unit_reduce_sum(u: Unit) -> Unit:
-    """Sum a ``Unit`` into a scalar Unit.
-
-    Mirrors R's ``if (inherits(u, 'simpleUnit')) sum(u) else Reduce('+', u)``:
-    when every component shares a single unit-type we can add
-    numerically; otherwise we fall back to the grid ``+`` operator,
-    which yields a compound ``'sum'`` unit.
-
-    Both branches now build intermediate Units via native
-    :py:meth:`grid_py.Unit.__getitem__` (``u[i:i+1]``) so per-entry
-    ``data`` (grob refs for lazy ``grobheight``/``grobwidth``) stays
-    attached across the reduction.
-    """
+    """R: ``if (inherits(u, 'simpleUnit')) sum(u) else Reduce('+', u)``."""
     n = len(u)
     if n == 0:
         return Unit([0.0], ["mm"])
-    # Fast path only when every entry is an absolute unit (no lazy
-    # grobheight/grobwidth — summing raw values would throw away the
-    # ``data`` grob reference). Otherwise fall through to pairwise +,
-    # which grid_py resolves correctly against the entries' data.
     if is_abs_unit(u) and len(set(u.units_list)) == 1:
         return Unit([float(sum(u.values))], [u.units_list[0]])
     acc = u[0:1]
@@ -205,18 +235,24 @@ def _unit_reduce_sum(u: Unit) -> Unit:
     return acc
 
 
+# ---------------------------------------------------------------------------
+# Panel-partition algorithm (R: patchGrob.wrapped_table, R/wrap_table.R:89-140)
+# ---------------------------------------------------------------------------
+
+
 def apply_wrapped_table_adjustment(
     x: Gtable,
     panel: str,
     row_head: int,
     space: Tuple[bool, bool],
 ) -> Gtable:
-    """Port of R's ``patchGrob.wrapped_table`` adjustment block.
+    """Port of R's ``patchGrob.wrapped_table`` post-resolve adjustment.
 
     Mirrors ``R/wrap_table.R:89-140`` verbatim. *x* is the outer gtable
-    produced by the inherited ``WrappedPatch`` resolver; its ``panel``
-    cell must already contain the inner table as a ``Gtable`` with a
-    ``vp`` anchor. Returns the mutated outer gtable.
+    produced by the inherited :class:`WrappedPatch` resolver; its
+    ``panel`` cell must contain the inner table as a Gtable with a
+    ``vp`` anchor and a ``table_body`` named region. Returns the
+    mutated outer gtable.
     """
     names = list(x.layout["name"])
     try:
@@ -233,11 +269,11 @@ def apply_wrapped_table_adjustment(
         table_height = convert_height(table_height, "mm")
 
     if panel in ("body", "cols"):
-        table_body_idx = [
+        body_idx = [
             i for i, n in enumerate(inner.layout["name"]) if n == "table_body"
         ]
-        if table_body_idx:
-            bp = table_body_idx[0]
+        if body_idx:
+            bp = body_idx[0]
             col_head = inner.layout["t"][bp] - 1
             col_tail = inner.layout["b"][bp] + 1
             n_inner_rows = len(inner.heights.values)
@@ -285,10 +321,10 @@ def apply_wrapped_table_adjustment(
 def _(x: WrappedTable, guides: str = "auto") -> Gtable:
     """Resolve a :class:`WrappedTable` to a gtable.
 
-    Calls the inherited :class:`WrappedPatch` resolver to build the outer
-    patchwork-compliant gtable, then applies the table-specific
-    width/height adjustments from :func:`apply_wrapped_table_adjustment`
-    (port of ``R/wrap_table.R:89-140``).
+    Calls the inherited :class:`WrappedPatch` resolver to build the
+    outer patchwork gtable, then applies the table-specific
+    width/height adjustments from
+    :func:`apply_wrapped_table_adjustment`.
     """
     from ._patch import patch_grob as _patch_grob
 

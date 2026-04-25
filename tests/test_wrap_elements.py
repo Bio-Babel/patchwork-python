@@ -59,13 +59,42 @@ def test_as_patch_patchwork_calls_patchworkGrob():
     assert is_gtable(result)
 
 
-def test_wrap_table_rejects_gt_tbl_like_objects():
-    class FakeGt:
-        _stub_df = object()
-        _options = object()
+def test_wrap_table_accepts_great_tables_gt():
+    """``wrap_table`` accepts a ``great_tables.GT`` directly (R parity with
+    ``wrap_table.gt_tbl``)."""
+    pytest.importorskip("great_tables")
+    from great_tables import GT
 
-    with pytest.raises(NotImplementedError):
-        pw.wrap_table(FakeGt())
+    df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    wt = pw.wrap_table(GT(df))
+    from patchwork.wrap_table import WrappedTable
+    assert isinstance(wt, WrappedTable)
+
+
+def test_wrap_table_auto_promotes_dataframe():
+    """A bare DataFrame is sugar for ``wrap_table(GT(df))``."""
+    pytest.importorskip("great_tables")
+
+    df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    wt = pw.wrap_table(df)
+    from patchwork.wrap_table import WrappedTable
+    assert isinstance(wt, WrappedTable)
+
+
+def test_wrap_table_rejects_uncoercible_input():
+    """Non-coercible input raises ``TypeError`` (not ``NotImplementedError``).
+
+    The pre-great_tables port flagged ``gt_tbl``-shaped duck-types via
+    NotImplementedError; the GT bridge makes that signalling obsolete.
+    """
+    pytest.importorskip("great_tables")
+
+    class NotATable:
+        def __iter__(self):
+            raise ValueError("not iterable in any useful way")
+
+    with pytest.raises((TypeError, ValueError)):
+        pw.wrap_table(NotATable())
 
 
 def test_wrap_ggplot_grob_preserves_input():
