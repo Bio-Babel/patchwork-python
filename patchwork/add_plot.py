@@ -224,11 +224,26 @@ class Patchwork:
         )
 
     def _repr_png_(self):
-        """Port of R's ``print.patchwork`` for Jupyter displayhooks."""
+        """Port of R's ``print.patchwork`` for Jupyter displayhooks.
+
+        Size hints (``fig_width`` / ``fig_height`` / ``fig_dpi``) are
+        looked up first on the Patchwork itself, then on the inner plot,
+        so ``p.fig_width = 12; pw = p | q`` keeps the user's sizing
+        without requiring a second assignment on ``pw``.
+        """
         from ._display import safe_repr_png
         from .core import patchworkGrob
 
-        return safe_repr_png(lambda: patchworkGrob(self))
+        def _hint(name: str) -> Any:
+            v = getattr(self, name, None)
+            return v if v is not None else getattr(self.plot, name, None)
+
+        return safe_repr_png(
+            lambda: patchworkGrob(self),
+            width=_hint("fig_width"),
+            height=_hint("fig_height"),
+            dpi=_hint("fig_dpi"),
+        )
 
     # ---- Operator overloads --------------------------------------------
     def __add__(self, other: Any) -> "Patchwork":

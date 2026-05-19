@@ -27,14 +27,17 @@ FIG_DPI = 150
 
 def gtable_to_png(
     gt: Gtable,
-    width: float = FIG_WIDTH,
-    height: float = FIG_HEIGHT,
-    dpi: float = FIG_DPI,
+    width: float | None = None,
+    height: float | None = None,
+    dpi: float | None = None,
 ) -> Optional[bytes]:
     """Render *gt* on a fresh grid page and return its PNG bytes."""
     from grid_py import get_state, grid_draw, grid_newpage
 
-    grid_newpage(width=width, height=height, dpi=float(dpi))
+    width = FIG_WIDTH if width is None else float(width)
+    height = FIG_HEIGHT if height is None else float(height)
+    dpi = float(FIG_DPI) if dpi is None else float(dpi)
+    grid_newpage(width=width, height=height, dpi=dpi)
     grid_draw(gt)
     renderer = get_state().get_renderer()
     if renderer is not None:
@@ -42,7 +45,13 @@ def gtable_to_png(
     return None
 
 
-def safe_repr_png(build_gtable: Callable[[], Optional[Gtable]]) -> Optional[bytes]:
+def safe_repr_png(
+    build_gtable: Callable[[], Optional[Gtable]],
+    *,
+    width: float | None = None,
+    height: float | None = None,
+    dpi: float | None = None,
+) -> Optional[bytes]:
     """Shared ``_repr_png_`` body used by every patchwork-level class.
 
     Mirrors ``ggplot2_py.GGPlot._repr_png_``'s error-handling contract:
@@ -54,7 +63,7 @@ def safe_repr_png(build_gtable: Callable[[], Optional[Gtable]]) -> Optional[byte
         gt = build_gtable()
         if gt is None:
             return None
-        return gtable_to_png(gt)
+        return gtable_to_png(gt, width=width, height=height, dpi=dpi)
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as exc:  # noqa: BLE001 — Jupyter _repr_* must not raise

@@ -68,6 +68,10 @@ class Patch:
         by :func:`~patchwork.inset_element` is wrapped in an empty
         ``plot_spacer()`` first so the inset's alignment settings have a
         host to lay out against (matching ``print.inset_patch`` in R).
+
+        Size hints (``fig_width`` / ``fig_height`` / ``fig_dpi``) are
+        read from the inner plot — ``Patch.__slots__`` blocks setting
+        them on the Patch wrapper itself.
         """
         from ._display import safe_repr_png
 
@@ -81,7 +85,12 @@ class Patch:
                 return patchworkGrob(plot_spacer() + self)
             return patch_grob(self)
 
-        return safe_repr_png(build)
+        return safe_repr_png(
+            build,
+            width=getattr(self.plot, "fig_width", None),
+            height=getattr(self.plot, "fig_height", None),
+            dpi=getattr(self.plot, "fig_dpi", None),
+        )
 
     def __add__(self, other):
         """Place *self* first, then *other*.
