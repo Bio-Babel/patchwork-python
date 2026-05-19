@@ -39,6 +39,29 @@ pip install patchwork-python
 pip install "patchwork-python[tables]"   # adds great_tables for wrap_table()
 ```
 
+## Figure size
+
+Jupyter's `_repr_png_` has no current graphics device, so render size lives on
+the plot object. Defaults are `7.0 × 5.0 in @ 150 dpi`
+(`patchwork/_display.py`).
+
+```python
+pw = p1 | p2
+pw.fig_width = 12
+pw.fig_height = 8
+pw.fig_dpi = 200
+pw   # renders at 12×8 @ 200 dpi
+```
+
+`Patchwork._repr_png_` resolves hints in this order: `self` → `self.plot` →
+defaults. So `p.fig_width = 12; p | q` propagates without re-setting on the
+wrapper. A bare `Patch` reads from its inner plot only (`Patch.__slots__`
+blocks per-instance attrs).
+
+> R contrast: none. R routes size through the active graphics device
+> (`png()`, `knitr` chunk options, RStudio plot pane). The `fig_*` protocol
+> is a Python-only carry-over from `ggplot2_py.GGPlot`.
+
 ## Documentation
 
 Tutorials are mirrored to `docs/tutorials/` and rendered via mkdocs:
