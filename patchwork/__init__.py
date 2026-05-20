@@ -14,7 +14,7 @@ work as in R.
 
 from __future__ import annotations
 
-__version__ = "1.3.2.9000"
+__version__ = "1.3.2.9000.post1"
 __r_commit__ = "6b1d88c"
 
 # 1. Load all submodules so their ``@singledispatch.register`` decorators run.
