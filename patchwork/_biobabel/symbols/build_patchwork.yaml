@@ -1,0 +1,47 @@
+id: patchwork.build_patchwork
+import_path: patchwork.core.build_patchwork
+kind: function
+signature: "build_patchwork(x: Any, guides: str = 'auto') -> Gtable"
+purpose: "Top-level render: convert a Patches holder (plots + layout + annotation) into one composed gtable."
+description: >
+  Renders every plot in x.plots to its own gtable (via plot_table +
+  simplify_gt), lays them out into the grid described by x.layout (ncol,
+  nrow, byrow, widths, heights, design — filling in a design via
+  layout.create_design when x.layout.design is unset), collects guides/axes
+  per x.layout.guides/axes/axis_titles, and tags the result
+  "gtable_patchwork" so the caller (patchworkGrob) can annotate it with
+  title/caption/background afterwards. It is the function invoked by
+  Patchwork's own plot_table registration and, ultimately, by
+  patchworkGrob/patchwork_grob.
+parameters:
+  - name: x
+    type: patchwork.add_plot.Patches
+    required: true
+    description: "The patchwork content (plots + layout + annotation) to render."
+  - name: guides
+    type: "str"
+    required: false
+    default: "auto"
+    description: "One of 'auto', 'collect', 'keep' — governs whether guides propagate up to this composition level."
+mutates: >
+  execution_class=builder; mutates x.layout in place (merges resolved
+  defaults into every field of x.layout, and sets x.layout.design when it
+  was previously None) while building and returning a brand-new Gtable;
+  returns_kind=new_object_with_side_effect_on_input_layout.
+returns: "gtable_py.Gtable tagged 'gtable_patchwork' — the composed grid of per-plot gtables, ready for patchworkGrob to annotate."
+requires: []
+writes:
+  - patches.layout.design
+examples:
+  - "patchwork.build_patchwork(pw.patches)"
+failure_fixes:
+  - when: "there are fewer design areas than plots to place"
+    suggest:
+      - "Give plot_layout(design=...) enough areas for every plot, or drop the extra plots."
+    explanation: "build_patchwork emits warnings.warn('Too few patch areas to hold all plots. Dropping plots') and silently truncates the plot list to fit (core.py)."
+related:
+  - patchwork.Patchwork
+  - patchwork.patchworkGrob
+  - patchwork.plot_table
+  - patchwork.simplify_gt
+  - patchwork.plot_layout

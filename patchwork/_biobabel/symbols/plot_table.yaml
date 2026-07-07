@@ -1,0 +1,52 @@
+id: patchwork.plot_table
+import_path: patchwork.core.plot_table
+kind: function
+signature: "plot_table(x: Any, guides: str = 'auto') -> Gtable"
+purpose: "Render a single plot-like object (a bare ggplot, a Patch, or a Patchwork) into a padded, strip/guide-annotated gtable ready to be composed into a larger layout."
+description: >
+  A functools.singledispatch generic. The GGPlot handler builds a ggplot
+  grob, adds facet strips and guide boxes, then applies any fixed outer
+  margins previously captured with set_dim/get_dim; it further special-cases
+  an inset-tagged or free-tagged ggplot by routing to
+  plot_table_inset_patch/plot_table_free_plot instead. The Patch handler
+  routes to patch_grob (unless it's an inset patch, then to
+  plot_table_inset_patch). The Patchwork handler (installed by
+  _register_plot_table_patchwork(), called once at package import) routes a
+  free-tagged patchwork to plot_table_free_plot, otherwise calls
+  build_patchwork(get_patches(x), guides). This is the function
+  build_patchwork calls once per plot/sub-patchwork while assembling a
+  composed layout.
+parameters:
+  - name: x
+    type: "ggplot2_py.GGPlot | patchwork._patch.Patch | patchwork.Patchwork"
+    required: true
+    description: "The object to render."
+  - name: guides
+    type: str
+    required: false
+    default: auto
+    description: "One of 'auto', 'collect', 'keep'."
+mutates: >
+  execution_class=pure_function; every branch builds and returns a new
+  Gtable; the inset-patch path temporarily toggles a private attribute on
+  its ggplot argument around a recursive call but restores/removes it before
+  returning, and only the returned gtable is tagged; returns_kind=new_object.
+returns: "gtable_py.Gtable — a padded, strip/guide-annotated gtable ready for composition."
+requires: []
+writes: []
+examples:
+  - "patchwork.plot_table(p1)"
+failure_fixes:
+  - when: "x has no registered handler"
+    suggest:
+      - "Only call plot_table on a ggplot2_py.GGPlot, a patchwork Patch, or a patchwork.Patchwork."
+    explanation: "The generic raises TypeError(f'No `plot_table` method for object of type {type(x).__name__}') for unregistered types (core.py)."
+  - when: "a ggplot's emitted guide-box layout doesn't have exactly 5 cells"
+    suggest:
+      - "This indicates an incompatible ggplot2_py version or a malformed guide layout; file it as a bug rather than adjusting plot_table's inputs."
+    explanation: "The internal add_guides helper raises RuntimeError when the guide-box layout shape doesn't match the expected 5-cell structure (core.py)."
+related:
+  - patchwork.build_patchwork
+  - patchwork.patch_grob
+  - patchwork.simplify_gt
+  - patchwork.set_dim

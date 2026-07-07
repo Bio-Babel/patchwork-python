@@ -1,0 +1,20 @@
+id: patchwork.discard_copy_on_modify_result
+name: Discarding the return value of free(), inset_element(), or merge()
+detection:
+  detector_id: patchwork.discard_copy_on_modify_result
+  static_only: true
+why_bad: >
+  free(), inset_element(), and merge() never mutate their argument in
+  place — Python has reference semantics, not R's copy-on-modify, so each
+  of these functions explicitly copies its input and returns a new, tagged
+  object (their own source comments call this out specifically to avoid
+  cross-call state leaking between sibling calls). Calling one as a bare,
+  un-assigned statement silently does nothing useful: the original variable
+  is completely unaffected and the new object is thrown away.
+correct_pattern: patchwork.free_to_avoid_alignment_bleed
+code_example_wrong: |
+  patchwork.free(p1)          # return value discarded — p1 is NOT freed
+  composed = p1 | p2mod
+code_example_right: |
+  p1_freed = patchwork.free(p1)
+  composed = p1_freed | p2mod

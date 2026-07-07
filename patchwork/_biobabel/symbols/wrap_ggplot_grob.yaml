@@ -1,0 +1,35 @@
+id: patchwork.wrap_ggplot_grob
+import_path: patchwork.wrap_ggplot_grob.wrap_ggplot_grob
+kind: function
+signature: "wrap_ggplot_grob(x: Gtable) -> TablePatch"
+purpose: "Make a raw gtable (typically the output of ggplotGrob) patchwork-compliant so it can be composed and aligned like an ordinary plot."
+description: >
+  x must already be a gtable shaped like one produced from a ggplot object
+  — no more than the canonical 18x15 (TABLE_COLS x TABLE_ROWS) cells. The
+  input gtable is stored unmutated as an attribute on the returned
+  TablePatch; the TablePatch's patch_grob handler re-derives and splices in
+  any "tag" grob position from a fresh ggplotGrob render of x.plot when tags
+  are present.
+parameters:
+  - name: x
+    type: "gtable_py.Gtable"
+    required: true
+    description: "A gtable, typically the output of ggplot2_py.ggplotGrob."
+mutates: "execution_class=pure_function; builds a fresh TablePatch storing x by reference without mutating it; returns_kind=new_object."
+returns: "patchwork.wrap_ggplot_grob.TablePatch — a Patch subclass that participates in patchwork alignment."
+requires: []
+writes: []
+examples:
+  - "p2 + patchwork.wrap_ggplot_grob(ggplotGrob(p1))"
+failure_fixes:
+  - when: "x is not a gtable_py.Gtable"
+    suggest:
+      - "Pass the Gtable produced by ggplot2_py.ggplotGrob(), not the ggplot object itself."
+    explanation: "wrap_ggplot_grob raises TypeError('`x` must be a <gtable>, got {type}') otherwise (wrap_ggplot_grob.py)."
+  - when: "x's widths/heights exceed the canonical 18x15 ggplot-gtable shape"
+    suggest:
+      - "Only pass a gtable produced from a genuine ggplot2_py plot via ggplotGrob(); do not pass an arbitrary hand-built gtable."
+    explanation: "wrap_ggplot_grob raises ValueError('`x` does not appear to be a gtable created from a <ggplot> object') when len(x.widths.values) > TABLE_COLS or len(x.heights.values) > TABLE_ROWS (wrap_ggplot_grob.py)."
+related:
+  - patchwork.wrap_elements
+  - patchwork.patch_grob

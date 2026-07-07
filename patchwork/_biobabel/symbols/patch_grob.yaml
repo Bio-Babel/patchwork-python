@@ -1,0 +1,41 @@
+id: patchwork.patch_grob
+import_path: patchwork._patch.patch_grob
+kind: function
+signature: "patch_grob(x: Any, guides: str = 'auto') -> Gtable"
+purpose: "Render a Patch-family object (Patch, GuideArea, WrappedPatch, TablePatch, WrappedTable) into a gtable."
+description: >
+  A functools.singledispatch generic; Python analogue of R's patchGrob
+  S3 generic. Registered for Patch (returns patch_table(x) unchanged — the
+  guides argument is accepted but unused on this path), and, elsewhere in
+  the package, for WrappedPatch (wrap_elements.py), WrappedTable
+  (wrap_table.py), GuideArea (guide_area.py), and TablePatch
+  (wrap_ggplot_grob.py). The WrappedPatch handler is where as_patch() gets
+  invoked to resolve the heterogeneous panel/plot/full payloads stashed by
+  wrap_elements() into actual grobs before placing them in the gtable.
+  patchGrob is a plain name-alias for this exact function object.
+parameters:
+  - name: x
+    type: Any
+    required: true
+    description: "Dispatch key. Registered types: Patch, GuideArea, WrappedPatch, TablePatch, WrappedTable."
+  - name: guides
+    type: str
+    required: false
+    default: auto
+    description: "One of 'auto', 'collect', 'keep' — whether the handler should collect or keep guides internally."
+mutates: "execution_class=pure_function; every registered handler builds and returns a new Gtable; returns_kind=new_object."
+returns: "gtable_py.Gtable — a gtable representing the rendered patch."
+requires: []
+writes: []
+examples:
+  - "patchwork.patch_grob(patchwork.guide_area())"
+failure_fixes:
+  - when: "x has no registered handler"
+    suggest:
+      - "Only call patch_grob on a Patch, GuideArea, WrappedPatch, TablePatch, or WrappedTable."
+    explanation: "The generic raises TypeError(f'No `patch_grob` method for object of type {type(x).__name__}') for unregistered types (_patch.py)."
+related:
+  - patchwork.patchGrob
+  - patchwork.as_patch
+  - patchwork.wrap_elements
+  - patchwork.plot_table

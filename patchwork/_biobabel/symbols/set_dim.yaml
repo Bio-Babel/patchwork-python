@@ -1,0 +1,48 @@
+id: patchwork.set_dim
+import_path: patchwork.multipage.set_dim
+kind: function
+signature: "set_dim(plot: Any, dim: PlotDimension) -> Any"
+purpose: "Apply a previously captured PlotDimension (from get_dim/get_max_dim) to plot, so it renders with the same outer margins as its source plot(s)."
+description: >
+  A functools.singledispatch generic. The GGPlot handler mutates plot in
+  place, tagging it with fixed_dimensions=dim and _ptw_fixed_dim=True, then
+  returns the same object. Those two attributes are read later by
+  core.py's _apply_fixed_dim_margins the next time the plot is rendered
+  (via plot_table/patchworkGrob), which overwrites the gtable's
+  outside-the-panel widths/heights with the captured mm values — so
+  set_dim's effect is inert until the plot is actually rendered again. The
+  Patchwork handler always raises (setting dimensions on a composed
+  patchwork is unsupported, matching R).
+parameters:
+  - name: plot
+    type: "ggplot2_py.GGPlot"
+    required: true
+    description: "The plot to tag with fixed outer-margin dimensions. A Patchwork is not supported."
+  - name: dim
+    type: "patchwork.multipage.PlotDimension"
+    required: true
+    description: "Dimensions previously captured with get_dim or get_max_dim."
+mutates: >
+  execution_class=in_place_mutation; writes fixed_dimensions and
+  _ptw_fixed_dim directly onto plot via safe_set and returns the same
+  object; returns_kind=same_object.
+returns: "The same plot object passed in, now tagged with fixed_dimensions so future renders use the captured outer margins."
+requires: []
+writes:
+  - ggplot.fixed_dimensions
+  - ggplot._ptw_fixed_dim
+examples:
+  - "p1_aligned = patchwork.set_dim(p1, patchwork.get_dim(p3))"
+failure_fixes:
+  - when: "dim is not a PlotDimension"
+    suggest:
+      - "Pass the PlotDimension object returned by get_dim() or get_max_dim(), not a raw value."
+    explanation: "set_dim raises TypeError('`dim` must be a PlotDimension from `get_dim`') otherwise (multipage.py)."
+  - when: "plot is a composed Patchwork rather than a bare ggplot"
+    suggest:
+      - "Call set_dim on the individual bare ggplot2_py.GGPlot objects, not on a composed Patchwork."
+    explanation: "set_dim.register(Patchwork) raises RuntimeError('Setting dimensions on patchworks is currently unsupported') (multipage.py)."
+related:
+  - patchwork.get_dim
+  - patchwork.get_max_dim
+  - patchwork.align_patches

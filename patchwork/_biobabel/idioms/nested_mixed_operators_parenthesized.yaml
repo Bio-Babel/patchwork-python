@@ -1,0 +1,16 @@
+id: patchwork.nested_mixed_operators_parenthesized
+name: Always parenthesize when mixing | / & * in one expression
+description: >
+  Python's / and * bind TIGHTER than | and &, the opposite of R's operator
+  precedence for these same operators. p1 | p2 / p3 parses as
+  p1 | (p2 / p3) in Python but as (p1 | p2) / p3 in R — an unparenthesized
+  mixed-operator expression translated verbatim from R silently produces a
+  different layout in Python. Always add explicit parentheses when mixing
+  these operators so the intended grouping is unambiguous and correct.
+code_template: |
+  # p1, p2, p3 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  nested = p1 | (p2 / p3)     # p1 beside a vertical stack of p2 over p3
+  # nested = (p1 | p2) / p3   # a *different* layout — parenthesize explicitly
+typical_use_case: "Porting an R patchwork expression that mixes | with / (or & with *) into Python without changing the intended layout."
+applicable_to:
+  - patchwork.operator_grammar

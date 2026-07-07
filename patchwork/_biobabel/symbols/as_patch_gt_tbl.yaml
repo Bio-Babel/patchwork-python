@@ -1,0 +1,37 @@
+id: patchwork.as_patch_gt_tbl
+import_path: patchwork.wrap_elements.as_patch_gt_tbl
+kind: function
+signature: "as_patch_gt_tbl(x: Any, **kwargs: Any) -> Grob"
+purpose: "Documents that R's as_patch.gt_tbl has no Python equivalent as a standalone function; always raises. Superseded in practice by wrap_table's real great_tables.GT bridge."
+description: >
+  Kept for discoverability of the R deviation. It is a bare helper, not
+  registered on the as_patch singledispatch, so it is only reached if called
+  directly. When great_tables is installed, wrap_table.py installs a real,
+  working as_patch.register(GT) handler (via gt_as_gtable in _gt_bridge.py),
+  which is what wrap_elements(full=<GT>) / wrap_table(<GT-or-DataFrame>)
+  actually go through — this function's NotImplementedError path is legacy
+  and not exercised by the normal wrap_table()/wrap_elements() flow.
+parameters:
+  - name: x
+    type: Any
+    required: true
+    description: "Unused — the call always raises."
+  - name: kwargs
+    type: Any
+    required: false
+    description: "Unused."
+mutates: "execution_class=pure_function; no side effects, always raises; returns_kind=n/a."
+returns: "Never returns."
+requires: []
+writes: []
+examples: []
+failure_fixes:
+  - when: "porting R code that relied on as_patch.gt_tbl for a gt::gt_tbl object"
+    suggest:
+      - "Use patchwork.wrap_table(<pandas.DataFrame or great_tables.GT>) instead."
+      - "Pass a gtable_py.Gtable directly to patchwork.wrap_elements(full=...)."
+    explanation: "as_patch_gt_tbl always raises NotImplementedError(\"as_patch.gt_tbl has no Python counterpart: the R 'gt' package has no Python port. Use wrap_table(<pandas.DataFrame>) or pass a gtable_py.Gtable to wrap_elements(full=...) instead.\") (wrap_elements.py)."
+related:
+  - patchwork.wrap_table
+  - patchwork.wrap_elements
+  - patchwork.as_patch

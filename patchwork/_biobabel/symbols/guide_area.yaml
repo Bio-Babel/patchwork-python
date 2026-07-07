@@ -1,0 +1,24 @@
+id: patchwork.guide_area
+import_path: patchwork.guide_area.guide_area
+kind: function
+signature: "guide_area() -> GuideArea"
+purpose: "Reserve a cell in the layout to host collected legends/guides."
+description: >
+  Takes no arguments. Returns a GuideArea (a Patch subclass) whose panel
+  cell is tagged "guide_area"; when placed in a layout together with
+  plot_layout(guides="collect"), the renderer places the collected legends
+  into this cell instead of an implicit shared edge. If no guides end up
+  being collected at render time, the cell behaves like an empty
+  plot_spacer(). A GuideArea never receives an auto-tag (has_tag returns
+  False for it).
+parameters: []
+mutates: "execution_class=pure_function; builds and tags a brand-new GuideArea via make_patch(); returns_kind=new_object."
+returns: "patchwork.guide_area.GuideArea — a Patch subclass; add it to a composition with +."
+requires: []
+writes: []
+examples:
+  - "p1 + p2 + p3 + patchwork.guide_area() + patchwork.plot_layout(guides='collect')"
+failure_fixes: []
+related:
+  - patchwork.plot_layout
+  - patchwork.plot_spacer

@@ -1,0 +1,32 @@
+id: patchwork.layout_and_design
+name: Layout specification and the WAIVER merge rule
+description: >
+  plot_layout(...) describes the grid a patchwork's plots are placed into —
+  either an automatic ncol/nrow grid, or an exact design (a multi-line text
+  string of letters/# for empty cells, or a PatchArea built with area(...)).
+  Every plot_layout()/plot_annotation() parameter defaults to a WAIVER
+  sentinel meaning "leave whatever is already set," so adding a second
+  plot_layout(...) later only overwrites the fields you actually pass.
+category: layout
+invariants:
+  - "A field left at WAIVER in plot_layout()/plot_annotation() never overwrites the composition's current value for that field — only explicitly-passed fields are applied."
+  - "In a design string, every distinct letter's covered cells must form one solid rectangle; a non-rectangular letter shape raises ValueError."
+  - "area(t, l, b, r) uses 1-based, inclusive grid coordinates; b defaults to t and r defaults to l when omitted (a single-cell area)."
+  - "plot_layout(design=...) is the composable, programmatic equivalent of a design string; multiple area(...) calls combine with + and MAY overlap, which a plain design string cannot express."
+mental_model: |
+  For R users: same design-string syntax, same area()/plot_layout() API. The
+  WAIVER-vs-None distinction matters more here than in R: in Python, `None`
+  is a real, meaningful value for several fields (e.g. axis_titles'
+  inheritance sentinel is distinct from both WAIVER and None), so passing
+  `None` explicitly is not the same as omitting the argument.
+
+  For Python users: plot_layout()/plot_annotation() return plain value
+  objects; nothing happens until you `+` them onto a plot/Patchwork. Two
+  separate `+ plot_layout(...)` calls compose rather than replace each
+  other, because unset fields stay at WAIVER and are skipped during merge.
+
+  General: think of plot_layout() as a sparse patch — only the fields you
+  name are applied when it's merged into the growing composition's layout.
+related_concepts:
+  - patchwork.operator_grammar
+  - patchwork.guide_axis_collection

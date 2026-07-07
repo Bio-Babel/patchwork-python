@@ -1,0 +1,100 @@
+id: patchwork.wrap_plots
+import_path: patchwork.wrap_plots.wrap_plots
+kind: function
+signature: "wrap_plots(*plots: Any, ncol: Any = None, nrow: Any = None, byrow: Any = None, widths: Any = None, heights: Any = None, guides: Any = None, tag_level: Any = None, design: Any = None, axes: Any = None, axis_titles: Any = WAIVER, **named_plots: Any) -> Patchwork"
+purpose: "Compose plots into a patchwork programmatically from a list/tuple/dict, instead of chaining + by hand — the entry point for a dynamic or variable-length set of plots."
+description: >
+  Accepts individual plots as positional args, or a single list/tuple/dict
+  of plots (dict keys or **named_plots keyword names become area labels).
+  ncol/nrow/byrow/widths/heights/guides/tag_level/design/axes are all
+  forwarded verbatim to plot_layout(...) applied to the resulting Patchwork;
+  axis_titles defaults to WAIVER and, when left at that default, inherits
+  whatever axes was given (same lazy-inherit rule as plot_layout itself).
+  When named plots are supplied together with a text design, and every
+  plot's name is among the design's area letters, the plots are placed at
+  those specific letters (alphabetically sorted) rather than in positional
+  order, with any unused area letters padded with plot_spacer().
+parameters:
+  - name: plots
+    type: "GGPlot | Grob | Patchwork | list | tuple | dict"
+    required: false
+    description: "Individual plots, or a single list/tuple/dict of plots. Dict keys are treated as area names."
+  - name: ncol
+    type: int
+    required: false
+    default: "None"
+    description: "Forwarded to plot_layout(ncol=...)."
+  - name: nrow
+    type: int
+    required: false
+    default: "None"
+    description: "Forwarded to plot_layout(nrow=...)."
+  - name: byrow
+    type: bool
+    required: false
+    default: "None"
+    description: "Forwarded to plot_layout(byrow=...)."
+  - name: widths
+    type: "float | Sequence[float]"
+    required: false
+    default: "None"
+    description: "Forwarded to plot_layout(widths=...)."
+  - name: heights
+    type: "float | Sequence[float]"
+    required: false
+    default: "None"
+    description: "Forwarded to plot_layout(heights=...)."
+  - name: guides
+    type: "Literal['auto', 'collect', 'keep']"
+    required: false
+    default: "None"
+    description: "Forwarded to plot_layout(guides=...)."
+  - name: tag_level
+    type: "Literal['keep', 'new']"
+    required: false
+    default: "None"
+    description: "Forwarded to plot_layout(tag_level=...)."
+  - name: design
+    type: "str | PatchArea"
+    required: false
+    default: "None"
+    description: "Forwarded to plot_layout(design=...); also used to resolve named-plot area placement."
+  - name: axes
+    type: "Literal['keep', 'collect', 'collect_x', 'collect_y']"
+    required: false
+    default: "None"
+    description: "Forwarded to plot_layout(axes=...)."
+  - name: axis_titles
+    type: "Literal['keep', 'collect', 'collect_x', 'collect_y']"
+    required: false
+    default: WAIVER
+    description: "Forwarded to plot_layout(axis_titles=...); inherits axes when left at the default WAIVER."
+  - name: named_plots
+    type: Any
+    required: false
+    description: "Named plots as keyword arguments (R-style: wrap_plots(A=p1, B=p2, design='AB'))."
+mutates: "execution_class=builder; builds a fresh Patchwork by repeatedly adding each plot with + starting from plot_filler(); does not mutate any of the caller's plot objects; returns_kind=new_object."
+returns: "patchwork.Patchwork — the composed result, equivalent to chaining + plot_layout(...) by hand."
+requires: []
+writes:
+  - patchwork.patches.layout
+examples:
+  - "patchwork.wrap_plots(p1, p2, p3, p4)"
+  - "patchwork.wrap_plots({'D': p1, 'C': p2, 'B': p3}, design='A#B\\n#C#\\nD#E')"
+failure_fixes:
+  - when: "wrap_plots is called with no plots and no named plots"
+    suggest:
+      - "Pass at least one plot, either positionally or as a named keyword argument."
+    explanation: "wrap_plots raises ValueError('wrap_plots needs at least one plot') when both are empty (wrap_plots.py)."
+  - when: "a single non-plot, non-list/tuple/dict positional argument is passed"
+    suggest:
+      - "Pass a ggplot2_py.GGPlot, a grid_py grob, a Patchwork, or a list/tuple/dict of them."
+    explanation: "wrap_plots raises TypeError('Can only wrap <ggplot> and/or <grob> objects or a list of them') otherwise (wrap_plots.py)."
+  - when: "an element of the plot list/dict is not a valid plot"
+    suggest:
+      - "Ensure every element is a ggplot2_py.GGPlot, a grid_py grob, or a Patchwork."
+    explanation: "wrap_plots raises TypeError('Only know how to add <ggplot> and/or <grob> objects') if any element fails the is_ggplot/is_grob/isinstance(Patchwork) check (wrap_plots.py)."
+related:
+  - patchwork.plot_layout
+  - patchwork.Patchwork
+  - patchwork.plot_spacer

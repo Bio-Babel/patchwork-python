@@ -1,0 +1,58 @@
+id: patchwork.wrap_elements
+import_path: patchwork.wrap_elements.wrap_elements
+kind: function
+signature: "wrap_elements(panel: Any = None, plot: Any = None, full: Any = None, clip: bool = True, ignore_tag: bool = False) -> WrappedPatch"
+purpose: "Wrap non-ggplot graphics (a grob, raster, DataFrame-backed table, or another patchwork) so they can be added to a patchwork like an ordinary plot."
+description: >
+  panel/plot/full each accept a grob, ggplot, patchwork, numpy raster array,
+  or anything as_patch() can convert, and place it in the corresponding area
+  (panel, plot, or full) of the resulting patch. wrap_elements() is called
+  implicitly whenever a non-ggplot object appears on the right-hand side of
+  +; call it explicitly when you need clip/ignore_tag control, or when the
+  non-ggplot object must be the left-hand/first element of a composition
+  (since Python's + dispatch can't originate from a plain grob). The actual
+  panel/plot/full → grob resolution is deferred to render time, performed by
+  the patch_grob handler registered for WrappedPatch, which calls
+  as_patch() on each non-None payload.
+parameters:
+  - name: panel
+    type: "Grob | GGPlot | Patchwork | numpy.ndarray | None"
+    required: false
+    default: "None"
+    description: "Content to place in the panel area."
+  - name: plot
+    type: "Grob | GGPlot | Patchwork | numpy.ndarray | None"
+    required: false
+    default: "None"
+    description: "Content to place in the plot area."
+  - name: full
+    type: "Grob | GGPlot | Patchwork | numpy.ndarray | None"
+    required: false
+    default: "None"
+    description: "Content to place in the full area."
+  - name: clip
+    type: bool
+    required: false
+    default: "True"
+    description: "Whether to clip grobs that expand beyond their area."
+  - name: ignore_tag
+    type: bool
+    required: false
+    default: "False"
+    description: "If True, automatic tagging skips this patch."
+mutates: >
+  execution_class=pure_function; builds a fresh WrappedPatch and stores
+  references to panel/plot/full in its own attrs dict without mutating any
+  of them; returns_kind=new_object.
+returns: "patchwork.wrap_elements.WrappedPatch — a Patch subclass; add it to a composition with +."
+requires: []
+writes: []
+examples:
+  - "p1 + patchwork.wrap_elements(full=some_grob)"
+  - "patchwork.wrap_elements(text_grob('Header')) + p1"
+failure_fixes: []
+related:
+  - patchwork.as_patch
+  - patchwork.patch_grob
+  - patchwork.wrap_table
+  - patchwork.wrap_ggplot_grob

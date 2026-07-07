@@ -1,0 +1,14 @@
+id: patchwork.area_based_layout
+name: Build a design programmatically with area(), including overlaps
+description: >
+  area(t, l, b, r) describes one rectangular cell in 1-based, inclusive grid
+  coordinates; combine several with + to build a design programmatically
+  (useful when the design is computed rather than hand-typed), including
+  overlapping regions that a plain text design string cannot express.
+code_template: |
+  # p1, p2 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  layout = pw.area(t=2, l=1, b=5, r=4) + pw.area(t=1, l=3, b=3, r=5)
+  composed = p1 + p2 + pw.plot_layout(design=layout)
+typical_use_case: "Generating a design programmatically, or expressing overlapping plot regions."
+applicable_to:
+  - patchwork.layout_and_design

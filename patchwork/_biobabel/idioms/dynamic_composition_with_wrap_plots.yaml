@@ -1,0 +1,20 @@
+id: patchwork.dynamic_composition_with_wrap_plots
+name: Compose a variable-length or named set of plots with wrap_plots()
+description: >
+  wrap_plots() is the programmatic alternative to chaining + by hand — pass
+  a list/tuple of plots (for a dynamic/variable-length set), or named
+  keyword plots together with a design string that references those names,
+  to place specific plots at specific design letters regardless of
+  positional order.
+code_template: |
+  # p1, p2, p3 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  from_list = pw.wrap_plots([p1, p2, p3], ncol=2)
+
+  layout = """
+  A#B
+  #C#
+  """
+  by_name = pw.wrap_plots(B=p1, C=p2, A=p3, design=layout)
+typical_use_case: "Building a composition from a list produced in a loop, or placing specific named plots at specific design-string letters."
+applicable_to:
+  - patchwork.layout_and_design

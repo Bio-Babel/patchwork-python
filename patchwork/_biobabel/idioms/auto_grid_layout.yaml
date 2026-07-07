@@ -1,0 +1,12 @@
+id: patchwork.auto_grid_layout
+name: Let patchwork auto-pick a grid for more than two plots
+description: >
+  Adding more than two plots with + (with no plot_layout at all) auto-picks
+  a roughly-square grid, filled row-major by default — the simplest way to
+  lay out several same-importance plots.
+code_template: |
+  # p1, p2, p3, p4 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  grid = p1 + p2 + p3 + p4
+typical_use_case: "Laying out several plots of similar importance without hand-picking rows/columns."
+applicable_to:
+  - patchwork.layout_and_design

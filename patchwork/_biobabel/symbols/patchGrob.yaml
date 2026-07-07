@@ -1,0 +1,32 @@
+id: patchwork.patchGrob
+import_path: patchwork._patch.patchGrob
+kind: function
+signature: "patchGrob(x: Any, guides: str = 'auto') -> Gtable"
+purpose: "R-compatible camelCase name for patch_grob — the exact same singledispatch function object, not a wrapper."
+description: >
+  `patchGrob = patch_grob` (a plain name binding in _patch.py, not a
+  separate def). Use patch_grob or patchGrob interchangeably; they share one
+  dispatch table.
+parameters:
+  - name: x
+    type: Any
+    required: true
+    description: "Dispatch key. Registered types: Patch, GuideArea, WrappedPatch, TablePatch, WrappedTable."
+  - name: guides
+    type: str
+    required: false
+    default: auto
+    description: "One of 'auto', 'collect', 'keep'."
+mutates: "execution_class=pure_function; identical to patch_grob (same object); returns_kind=new_object."
+returns: "gtable_py.Gtable — identical behavior to patch_grob."
+requires: []
+writes: []
+examples:
+  - "patchwork.patchGrob(patchwork.guide_area())"
+failure_fixes:
+  - when: "x has no registered handler"
+    suggest:
+      - "Only call patchGrob on a Patch, GuideArea, WrappedPatch, TablePatch, or WrappedTable."
+    explanation: "Identical to patch_grob's TypeError since it is the same function object (_patch.py)."
+related:
+  - patchwork.patch_grob

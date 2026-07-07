@@ -1,0 +1,15 @@
+id: patchwork.use_deprecated_align_plots
+name: Calling the deprecated align_plots instead of align_patches
+detection:
+  regex: "align_plots\\s*\\("
+  static_only: true
+why_bad: >
+  align_plots is kept only as a deprecated R-API-name alias; it forwards
+  every argument to align_patches and always emits a DeprecationWarning
+  first. There is no behavioral reason to call it in new code — it offers
+  nothing align_patches doesn't.
+correct_pattern: patchwork.multipage_alignment_one_shot
+code_example_wrong: |
+  plots_aligned = patchwork.align_plots(p1, p2, p3)
+code_example_right: |
+  plots_aligned = patchwork.align_patches(p1, p2, p3)

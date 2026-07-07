@@ -1,0 +1,12 @@
+id: patchwork.explicit_grid_with_plot_layout
+name: Override the automatic grid with plot_layout(nrow=/ncol=/byrow=)
+description: >
+  Add plot_layout() after composing plots with + to pick the exact number
+  of rows/columns and the fill order, instead of relying on the automatic
+  near-square grid.
+code_template: |
+  # p1, p2, p3, p4 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  grid = p1 + p2 + p3 + p4 + pw.plot_layout(nrow=3, byrow=False)
+typical_use_case: "Forcing a specific row/column count or column-major fill order for a multi-plot grid."
+applicable_to:
+  - patchwork.layout_and_design

@@ -1,0 +1,17 @@
+id: patchwork.annotate_composition
+name: Add a title, subtitle, and caption to the whole composition
+description: >
+  plot_annotation(title=, subtitle=, caption=) decorates only the top-level
+  composition (one title/subtitle/caption row around the whole grid), as
+  opposed to & + theme(...) which restyles every sub-plot.
+code_template: |
+  # p1, p2, p3 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  composed = (p1 + p2) / p3
+  composed = composed + pw.plot_annotation(
+      title="The surprising truth about mtcars",
+      subtitle="These 3 plots reveal yet-untold secrets",
+      caption="Disclaimer: None of these plots are insightful",
+  )
+typical_use_case: "Giving a multi-panel figure a single publication-style title/subtitle/caption."
+applicable_to:
+  - patchwork.layout_and_design

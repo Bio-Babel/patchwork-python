@@ -1,0 +1,39 @@
+id: patchwork.align_patches
+import_path: patchwork.multipage.align_patches
+kind: function
+signature: "align_patches(*plots: Any) -> List[Any]"
+purpose: "Give every plot in a set the same outer margins in one call so independently-rendered plots line up across pages/slides."
+description: >
+  Accepts either several positional plots or a single list/tuple of plots
+  (R-style variadic). Computes the element-wise max outer-margin dimensions
+  across all of them via get_max_dim, then applies that shared PlotDimension
+  to every plot via set_dim, and returns the list of (now-mutated) plots in
+  the same order, ready to be rendered/displayed one after another. Each
+  input must be a bare ggplot2_py.GGPlot — passing a composed Patchwork
+  raises, matching R's `get_dim.patchwork` restriction.
+parameters:
+  - name: plots
+    type: "GGPlot | list[GGPlot] | tuple[GGPlot, ...]"
+    required: true
+    description: "Individual plots as separate positional args, or a single list/tuple of plots."
+mutates: >
+  execution_class=pure_function_over_mutated_inputs; calls set_dim(p,
+  max_dims) on every plot, which mutates each plot in place (sets
+  fixed_dimensions/_ptw_fixed_dim) and returns it; returns_kind=same_objects.
+returns: "list[GGPlot] — the same plot objects passed in, each now tagged with the shared fixed_dimensions."
+requires: []
+writes:
+  - ggplot.fixed_dimensions
+  - ggplot._ptw_fixed_dim
+examples:
+  - "plots_aligned = patchwork.align_patches(p1, p2, p3, p4)"
+failure_fixes:
+  - when: "one of the inputs is a composed Patchwork rather than a bare ggplot"
+    suggest:
+      - "Only pass bare ggplot2_py.GGPlot objects to align_patches; align each sub-plot before composing them into a Patchwork."
+    explanation: "get_dim (called internally via get_max_dim) raises RuntimeError('Getting dimensions on patchworks is currently unsupported') for Patchwork input (multipage.py)."
+related:
+  - patchwork.get_dim
+  - patchwork.get_max_dim
+  - patchwork.set_dim
+  - patchwork.align_plots

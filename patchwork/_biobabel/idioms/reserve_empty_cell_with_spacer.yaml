@@ -1,0 +1,12 @@
+id: patchwork.reserve_empty_cell_with_spacer
+name: Reserve a blank cell with plot_spacer()
+description: >
+  plot_spacer() adds a transparent, untagged placeholder patch that occupies
+  a grid cell without drawing anything — useful for visually separating
+  plots or leaving an intentional gap in a grid/design.
+code_template: |
+  # p1, p2, p3 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  composed = p1 + pw.plot_spacer() + p2 + pw.plot_spacer() + p3
+typical_use_case: "Leaving a deliberate visual gap between plots in a grid or design-string layout."
+applicable_to:
+  - patchwork.layout_and_design

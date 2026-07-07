@@ -1,0 +1,42 @@
+id: patchwork.as_patch
+import_path: patchwork.wrap_elements.as_patch
+kind: function
+signature: "as_patch(x: Any, **kwargs: Any) -> Grob"
+purpose: "Convert x to a grob suitable for placement inside a patch slot."
+description: >
+  A functools.singledispatch generic. Registered in wrap_elements.py for
+  grid_py.Grob and GTree (identity), GList (wraps children in a fresh
+  GTree), ggplot2_py.GGPlot (via ggplotGrob), and numpy.ndarray (via
+  raster_grob). Additional registrations exist elsewhere: patchwork.Patchwork
+  (installed in patchwork/__init__.py, delegates to patchworkGrob) and
+  great_tables.GT (installed lazily by wrap_table._register_gt_as_patch(),
+  a no-op if great_tables isn't installed). It is invoked at render time by
+  the patch_grob handler for WrappedPatch to resolve whatever heterogeneous
+  object was stashed in a wrap_elements()/wrap_table() call into an actual
+  grob.
+parameters:
+  - name: x
+    type: Any
+    required: true
+    description: "Dispatch key — a Grob, GTree, GList, GGPlot, Patchwork, numpy.ndarray, or (if great_tables is installed) a GT."
+  - name: kwargs
+    type: Any
+    required: false
+    description: "Forwarded to the concrete handler; unused by the default/most handlers."
+mutates: "execution_class=pure_function; every registered handler returns a new or pass-through grob, never mutates x; returns_kind=new_object_or_identity."
+returns: "grid_py.Grob (or a more specific subtype such as GTree or gtable_py.Gtable, depending on which handler ran)."
+requires: []
+writes: []
+examples:
+  - "patchwork.as_patch(some_ggplot)"
+  - "patchwork.as_patch(numpy_rgb_array)"
+failure_fixes:
+  - when: "x has no registered handler (e.g. a plain str or an unrelated object)"
+    suggest:
+      - "Only pass a Grob, GTree, GList, GGPlot, Patchwork, numpy.ndarray, or GT to as_patch."
+    explanation: "The generic raises TypeError for unregistered types (wrap_elements.py)."
+related:
+  - patchwork.wrap_elements
+  - patchwork.patch_grob
+  - patchwork.as_patch_formula
+  - patchwork.as_patch_gt_tbl

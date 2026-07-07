@@ -1,0 +1,14 @@
+id: patchwork.nested_tag_level_reset
+name: Restart or extend the tag sequence for a nested sub-patchwork
+description: >
+  Nested patchworks continue the parent's tag sequence by default. Give a
+  nested sub-plot's own plot_layout(tag_level="new") to restart tagging for
+  that subtree, and pass a list to tag_levels (one entry per nesting depth,
+  e.g. ["A", "1"]) to combine an outer-level alphabet with an inner-level one.
+code_template: |
+  # patchwork_obj is a nested composition, e.g. (p1 + p2) / p3; import patchwork as pw first.
+  patchwork_obj[0] = patchwork_obj[0] + pw.plot_layout(tag_level="new")
+  tagged = patchwork_obj + pw.plot_annotation(tag_levels=["A", "1"])
+typical_use_case: "A figure with an outer grid of lettered panels, where one panel is itself a small multi-plot composition that should have its own independent 1, 2, 3, ... numbering."
+applicable_to:
+  - patchwork.layout_and_design

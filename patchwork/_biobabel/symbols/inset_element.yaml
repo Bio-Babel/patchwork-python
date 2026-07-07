@@ -1,0 +1,77 @@
+id: patchwork.inset_element
+import_path: patchwork.inset.inset_element
+kind: function
+signature: "inset_element(p: Any, left: Union[float, Unit], bottom: Union[float, Unit], right: Union[float, Unit], top: Union[float, Unit], align_to: Literal['panel', 'plot', 'full'] = 'panel', on_top: bool = True, clip: bool = True, ignore_tag: bool = False) -> Any"
+purpose: "Place p as an inset at an explicit fractional (or unit) position on top of (or underneath) the plot it's added to."
+description: >
+  left/bottom/right/top are treated as npc (fraction of the target area)
+  when passed as plain floats, or used as-is when passed as a grid_py.Unit.
+  align_to picks which area the coordinates are relative to. If p is not
+  already a ggplot, it is first wrapped via wrap_elements(full=p, clip=False)
+  — note clip=False is hardcoded for that wrap regardless of the clip
+  argument, which only affects the settings dict recorded for later
+  rendering. Never mutates the caller's plot: a copy is always taken first
+  (matching R's copy-on-modify), so calling inset_element twice on the same
+  base plot with different settings yields two independent results.
+parameters:
+  - name: p
+    type: "GGPlot | Patchwork | Grob | numpy.ndarray | Any accepted by wrap_elements"
+    required: true
+    description: "The plot/content to place as an inset."
+  - name: left
+    type: "float | grid_py.Unit"
+    required: true
+    description: "Left edge; a plain float is treated as npc."
+  - name: bottom
+    type: "float | grid_py.Unit"
+    required: true
+    description: "Bottom edge; a plain float is treated as npc."
+  - name: right
+    type: "float | grid_py.Unit"
+    required: true
+    description: "Right edge; a plain float is treated as npc."
+  - name: top
+    type: "float | grid_py.Unit"
+    required: true
+    description: "Top edge; a plain float is treated as npc."
+  - name: align_to
+    type: "Literal['panel', 'plot', 'full']"
+    required: false
+    default: panel
+    description: "Which area of the host plot the coordinates are relative to."
+  - name: on_top
+    type: bool
+    required: false
+    default: "True"
+    description: "If False, the inset is placed underneath (behind) the host plot's panel in z-order."
+  - name: clip
+    type: bool
+    required: false
+    default: "True"
+    description: "Whether the inset is clipped to its area; recorded in inset_settings (does not affect the internal wrap_elements() call, which always uses clip=False when p is not already a ggplot)."
+  - name: ignore_tag
+    type: bool
+    required: false
+    default: "False"
+    description: "If True, automatic tagging skips this inset."
+mutates: >
+  execution_class=copy_then_tag; copies p (ggplot path via copy.copy, or
+  wraps a non-ggplot p in a new WrappedPatch via wrap_elements) then writes
+  inset_settings and _ptw_inset_patch=True onto the copy; the caller's
+  original p is never mutated; returns_kind=new_object.
+returns: "The same kind of object as p (typically GGPlot or WrappedPatch), tagged as an inset."
+requires: []
+writes:
+  - ggplot.inset_settings
+  - ggplot._ptw_inset_patch
+examples:
+  - "p1 + patchwork.inset_element(p2, left=0.6, bottom=0.6, right=1, top=1)"
+  - "p3 + patchwork.inset_element(p1, left=0.5, bottom=0, right=1, top=0.5, on_top=False, align_to='full')"
+failure_fixes:
+  - when: "align_to is not one of 'panel', 'plot', 'full'"
+    suggest:
+      - "Pass align_to='panel', 'plot', or 'full'."
+    explanation: "inset_element validates align_to via arg_match and raises ValueError mentioning 'align_to' otherwise (inset.py)."
+related:
+  - patchwork.wrap_elements
+  - patchwork.free

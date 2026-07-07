@@ -1,0 +1,64 @@
+id: patchwork.wrap_table
+import_path: patchwork.wrap_table.wrap_table
+kind: function
+signature: "wrap_table(table: Any, panel: Literal['body', 'full', 'rows', 'cols'] = 'body', space: Literal['free', 'free_x', 'free_y', 'fixed'] = 'free', ignore_tag: bool = False) -> WrappedTable"
+purpose: "Wrap a great_tables.GT (or a pandas.DataFrame, auto-promoted to GT) into a patchwork-compliant patch, aligned like an ordinary plot panel."
+description: >
+  Deviation from R: R's wrap_table accepts a gt::gt_tbl object; this port
+  accepts a great_tables.GT directly, or a pandas.DataFrame (or anything
+  pd.DataFrame(table) can coerce), auto-promoted via great_tables.GT(df).
+  Requires the optional great_tables dependency (install via
+  `pip install patchwork-python[tables]`). panel selects which portion of
+  the rendered table aligns with the panel region of neighboring plots
+  ('body' by default); space controls whether the table's own fixed
+  dimensions are allowed to flex with the layout ('free' family) or are
+  always honored exactly ('fixed'). Internally delegates construction to
+  wrap_elements(full=<GT>, ignore_tag=ignore_tag) and then re-tags the
+  result as WrappedTable.
+parameters:
+  - name: table
+    type: "great_tables.GT | pandas.DataFrame | Any coercible via pandas.DataFrame(table)"
+    required: true
+    description: "The table content; a DataFrame (or DataFrame-coercible object) is auto-promoted to a great_tables.GT."
+  - name: panel
+    type: "Literal['body', 'full', 'rows', 'cols']"
+    required: false
+    default: body
+    description: "Which portion of the table aligns with the panel region."
+  - name: space
+    type: "Literal['free', 'free_x', 'free_y', 'fixed']"
+    required: false
+    default: free
+    description: "Whether the table's fixed dimensions are allowed to flex with the surrounding layout."
+  - name: ignore_tag
+    type: bool
+    required: false
+    default: "False"
+    description: "If True, automatic tagging skips this patch."
+mutates: "execution_class=pure_function; builds a fresh WrappedTable via wrap_elements(); does not mutate the input table object; returns_kind=new_object."
+returns: "patchwork.wrap_table.WrappedTable — a WrappedPatch subclass; add it to a composition with +."
+requires: []
+writes: []
+examples:
+  - "p1 + patchwork.wrap_table(df[['mpg', 'disp']].head(10), panel='full', space='fixed')"
+failure_fixes:
+  - when: "great_tables is not installed"
+    suggest:
+      - "Install the optional dependency: pip install \"patchwork-python[tables]\"."
+    explanation: "wrap_table raises ImportError('wrap_table requires the great_tables package. Install via `pip install patchwork-python[tables]`.') when great_tables can't be imported (wrap_table.py)."
+  - when: "table is neither a GT nor DataFrame-coercible"
+    suggest:
+      - "Pass a great_tables.GT, a pandas.DataFrame, or an object pandas.DataFrame(...) can construct from."
+    explanation: "wrap_table raises TypeError when pd.DataFrame(table) also fails to coerce the input (wrap_table.py)."
+  - when: "panel is not one of 'body', 'full', 'rows', 'cols'"
+    suggest:
+      - "Pass panel='body', 'full', 'rows', or 'cols'."
+    explanation: "wrap_table validates panel via arg_match, raising ValueError mentioning 'panel' otherwise (wrap_table.py)."
+  - when: "space is not one of 'free', 'free_x', 'free_y', 'fixed'"
+    suggest:
+      - "Pass space='free', 'free_x', 'free_y', or 'fixed'."
+    explanation: "wrap_table validates space via arg_match, raising ValueError mentioning 'space' otherwise (wrap_table.py)."
+related:
+  - patchwork.wrap_elements
+  - patchwork.as_patch_gt_tbl
+  - patchwork.patch_grob

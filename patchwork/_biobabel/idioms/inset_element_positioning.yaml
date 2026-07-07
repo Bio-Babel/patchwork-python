@@ -1,0 +1,16 @@
+id: patchwork.inset_element_positioning
+name: Place one plot as an inset on top of (or behind) another
+description: >
+  inset_element(p, left, bottom, right, top, ...) places p at fractional
+  (npc) coordinates relative to align_to's area of the plot it's added to.
+  on_top=False places the inset behind the host plot's panel instead of
+  above it.
+code_template: |
+  # p1, p2, p3 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  with_inset = p1 + pw.inset_element(p2, left=0.6, bottom=0.6, right=1, top=1)
+  behind = p3 + pw.inset_element(
+      p1, left=0.5, bottom=0, right=1, top=0.5, on_top=False, align_to="full"
+  )
+typical_use_case: "A small overview/detail plot embedded inside a larger figure."
+applicable_to:
+  - patchwork.layout_and_design

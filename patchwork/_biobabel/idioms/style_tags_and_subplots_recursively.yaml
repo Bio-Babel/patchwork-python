@@ -1,0 +1,15 @@
+id: patchwork.style_tags_and_subplots_recursively
+name: Restyle every sub-plot (and tag text) at once with &
+description: >
+  & applies a ggplot2 modifier — most commonly a theme() call — to every
+  plot in the composition, recursing into nested patchworks too. This is
+  how tag appearance (e.g. plot_tag text size) gets styled, since
+  plot_annotation() itself only decorates the outer composition.
+code_template: |
+  # p1, p2, p3 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  composed = (p1 + p2) / p3
+  tagged = composed + pw.plot_annotation(tag_levels="A")
+  styled = tagged & theme(plot_tag=element_text(size=8))
+typical_use_case: "Styling the auto-generated tag text, or applying one theme to every panel in a composition at once."
+applicable_to:
+  - patchwork.operator_grammar

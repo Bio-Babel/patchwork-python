@@ -1,0 +1,103 @@
+id: patchwork.plot_layout
+import_path: patchwork.layout.plot_layout
+kind: function
+signature: "plot_layout(ncol: Any = WAIVER, nrow: Any = WAIVER, byrow: Any = WAIVER, widths: Any = WAIVER, heights: Any = WAIVER, guides: Any = WAIVER, tag_level: Any = WAIVER, design: Any = WAIVER, axes: Any = WAIVER, axis_titles: Any = <inherits axes>) -> PlotLayout"
+purpose: "Define the grid a composed patchwork's plots are placed into, and control guide/axis collection."
+description: >
+  Every parameter except axis_titles defaults to the ggplot2_py WAIVER
+  sentinel, meaning "leave whatever is already set" when this PlotLayout is
+  added to a Patchwork/GGPlot with +. axis_titles has its own private
+  inherit-sentinel: when the caller doesn't pass it explicitly, it silently
+  copies whatever value axes was given (mirroring R's lazy default-argument
+  binding axis_titles = axes); pass axis_titles=WAIVER explicitly to opt out
+  of that inheritance. design accepts either a multi-line text string
+  (letters/# for empty cells) or a PatchArea built with area(...) + area(...).
+parameters:
+  - name: ncol
+    type: int
+    required: false
+    default: WAIVER
+    description: "Number of columns in the grid; if both ncol and nrow are None, a default near-square grid is chosen."
+  - name: nrow
+    type: int
+    required: false
+    default: WAIVER
+    description: "Number of rows in the grid."
+  - name: byrow
+    type: bool
+    required: false
+    default: WAIVER
+    description: "If False, fill the grid column-major instead of row-major."
+  - name: widths
+    type: "float | Sequence[float] | grid_py.Unit"
+    required: false
+    default: WAIVER
+    description: "Relative or absolute column widths, recycled to the grid."
+  - name: heights
+    type: "float | Sequence[float] | grid_py.Unit"
+    required: false
+    default: WAIVER
+    description: "Relative or absolute row heights, recycled to the grid."
+  - name: guides
+    type: "Literal['auto', 'collect', 'keep']"
+    required: false
+    default: WAIVER
+    description: "Whether/how legends are collected to a shared location."
+  - name: tag_level
+    type: "Literal['keep', 'new']"
+    required: false
+    default: WAIVER
+    description: "'new' restarts the auto-tag sequence for this nested patchwork instead of continuing the parent's."
+  - name: design
+    type: "str | PatchArea"
+    required: false
+    default: WAIVER
+    description: "A text design string (letters + # for empty cells) or a PatchArea from area(...), describing exact plot placement."
+  - name: axes
+    type: "Literal['keep', 'collect', 'collect_x', 'collect_y']"
+    required: false
+    default: WAIVER
+    description: "Whether duplicate axes on shared rows/columns are collected."
+  - name: axis_titles
+    type: "Literal['keep', 'collect', 'collect_x', 'collect_y']"
+    required: false
+    default: "inherits axes when omitted"
+    description: "Whether duplicate axis titles are collected/centered; defaults to whatever axes was set to unless passed explicitly (pass WAIVER to opt out of inheritance)."
+mutates: >
+  execution_class=pure_constructor; plot_layout() itself only builds a
+  PlotLayout value object. The mutation happens when it is combined with +
+  on a GGPlot/Patchwork: update_ggplot's PlotLayout handler coerces the LHS
+  to a Patchwork and setattrs each non-WAIVER field directly onto
+  pw.patches.layout, leaving WAIVER fields (and hence whatever value was
+  already set) untouched. returns_kind=new_value_object; the += consumer
+  mutates pw.patches.layout in place.
+returns: "patchwork.layout.PlotLayout — add it to a Patchwork/GGPlot with + to apply it."
+requires: []
+writes:
+  - patchwork.patches.layout
+examples:
+  - "p1 + p2 + p3 + p4 + patchwork.plot_layout(ncol=2, byrow=False)"
+  - "p1 + p2 + p3 + p4 + patchwork.plot_layout(design='##BBBB\\nAACCDD\\n##CCDD')"
+  - "p1 + p2 + p3 + patchwork.guide_area() + patchwork.plot_layout(guides='collect')"
+failure_fixes:
+  - when: "guides is not one of 'auto', 'collect', 'keep'"
+    suggest:
+      - "Pass guides='auto', 'collect', or 'keep'."
+    explanation: "plot_layout validates guides via arg_match and raises ValueError mentioning 'guides' otherwise (layout.py)."
+  - when: "tag_level is not one of 'keep', 'new'"
+    suggest:
+      - "Pass tag_level='keep' or 'new'."
+    explanation: "plot_layout validates tag_level via arg_match, raising ValueError otherwise (layout.py)."
+  - when: "axes (or axis_titles) is not one of 'keep', 'collect', 'collect_x', 'collect_y'"
+    suggest:
+      - "Pass one of 'keep', 'collect', 'collect_x', 'collect_y'."
+    explanation: "plot_layout validates axes/axis_titles via arg_match, raising ValueError otherwise (layout.py)."
+  - when: "a design string's letters don't cover a solid rectangle for some area"
+    suggest:
+      - "Make sure every distinct letter in the design string forms a contiguous rectangular block."
+    explanation: "The design-string parser (as_areas -> area()) raises ValueError('patch areas must be rectangular') when a letter's cells aren't rectangular (layout.py)."
+related:
+  - patchwork.area
+  - patchwork.wrap_plots
+  - patchwork.Patchwork
+  - patchwork.guide_area

@@ -1,0 +1,16 @@
+id: patchwork.wrap_non_ggplot_content
+name: Compose non-ggplot content (grobs, tables) via wrap_elements/wrap_table
+description: >
+  Non-ggplot objects (a raw grid_py grob, a pandas.DataFrame/great_tables
+  table) can be added directly on the right-hand side of + (patchwork
+  implicitly wraps them), but must be wrapped explicitly via wrap_elements()/
+  wrap_table() when they need to be the FIRST element of a composition, or
+  when clip/ignore_tag/panel/space settings need to be controlled.
+code_template: |
+  # p1 is a ggplot2_py.GGPlot; import patchwork as pw first.
+  from grid_py import text_grob
+  with_table = p1 + pw.wrap_table(df[["mpg", "disp"]].head(10), panel="full", space="fixed")
+  with_header = pw.wrap_elements(text_grob("Header")) + p1   # non-ggplot as the first element
+typical_use_case: "Adding a data table or a raw grid annotation alongside ggplot panels in one composition."
+applicable_to:
+  - patchwork.operator_grammar

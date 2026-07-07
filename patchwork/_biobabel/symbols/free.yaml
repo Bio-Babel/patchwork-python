@@ -1,0 +1,65 @@
+id: patchwork.free
+import_path: patchwork.free.free
+kind: function
+signature: "free(x: Union[GGPlot, Patchwork], type: Literal['panel', 'label', 'space'] = 'panel', side: str = 'trbl') -> Union[GGPlot, Patchwork]"
+purpose: "Free a plot from alignment constraints with its siblings, e.g. so one plot's long axis label doesn't push whitespace into neighboring panels."
+description: >
+  Returns a copy of x (never mutates the caller's object — R has
+  copy-on-modify semantics, so free() explicitly copy.copy()s x first) with
+  free-settings attached. type='panel' lets the panel expand without
+  matching siblings; 'label' keeps axis labels glued to the axis instead of
+  aligned across siblings; 'space' does not reserve axis-label space at all.
+  side restricts which edges (subset of 't','r','b','l') are freed.
+  Internally routes the copy through merge() before returning, so
+  free(some_patchwork) also demotes that patchwork to a single child under a
+  filler (merge.patchwork's effect).
+parameters:
+  - name: x
+    type: "ggplot2_py.GGPlot | patchwork.Patchwork"
+    required: true
+    description: "The plot to free."
+  - name: type
+    type: "Literal['panel', 'label', 'space']"
+    required: false
+    default: panel
+    description: "'panel': let the panel expand freely. 'label': keep axis labels glued to the axis. 'space': do not reserve axis-label space at all."
+  - name: side
+    type: str
+    required: false
+    default: trbl
+    description: "Subset of the characters t, r, b, l denoting which sides to free."
+mutates: >
+  execution_class=copy_then_tag; explicitly copy.copy()s x before writing
+  free_settings (GGPlot) / patchwork_free_settings (Patchwork) and
+  _ptw_free_plot=True onto the copy (and again onto whatever merge(copy)
+  returns, in case merge produced a different object); the original x passed
+  in is left untouched; returns_kind=new_object.
+returns: "The same kind of object as x (GGPlot or Patchwork), now tagged as a free plot."
+requires: []
+writes:
+  - ggplot.free_settings
+  - patchwork.patchwork_free_settings
+  - ggplot._ptw_free_plot
+examples:
+  - "patchwork.free(p1) | p2"
+  - "patchwork.free(p5, 'space', 'l') + p1"
+failure_fixes:
+  - when: "type is not one of 'panel', 'label', 'space'"
+    suggest:
+      - "Pass type='panel', 'label', or 'space'."
+    explanation: "free() validates type via arg_match and raises ValueError mentioning 'type' otherwise (free.py)."
+  - when: "side contains a character other than t, r, b, l"
+    suggest:
+      - "Only use the characters t, r, b, l (in any combination) for side."
+    explanation: "free() raises ValueError(\"`side` can only contain the t, r, b, and l characters\") (free.py)."
+  - when: "x is neither a GGPlot nor a Patchwork"
+    suggest:
+      - "Only call free() on a ggplot2_py.GGPlot or a patchwork.Patchwork."
+    explanation: "free() raises TypeError('`x` must be a <ggplot> or <patchwork> object') otherwise (free.py)."
+  - when: "free() is called twice on overlapping sides of the same plot with different type"
+    suggest:
+      - "Call free() once per plot with the final desired type/side combination, or expect the later call to win for overlapping sides."
+    explanation: "free() emits warnings.warn(f'Overwriting free settings for {sorted(overlap)}', UserWarning) when a side is re-freed with settings already present (free.py)."
+related:
+  - patchwork.merge
+  - patchwork.inset_element

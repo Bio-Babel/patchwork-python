@@ -1,0 +1,17 @@
+id: patchwork.relative_and_unit_sizing
+name: Control column/row sizing with relative numbers or explicit units
+description: >
+  plot_layout(widths=..., heights=...) accepts plain numbers (relative
+  proportions, recycled across the grid) or a grid_py.Unit mixing absolute
+  and relative ('null') units, for when some panels need a fixed physical
+  size and others should fill remaining space.
+code_template: |
+  # p1, p2, p3, p4 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  from grid_py import Unit
+  composed = p1 + p2 + p3 + p4 + pw.plot_layout(
+      widths=[2, 1],
+      heights=Unit([5, 1], ["cm", "null"]),
+  )
+typical_use_case: "Giving one column/row more relative space, or pinning a row to an exact physical size (e.g. a fixed-height caption row) while the rest fill available space."
+applicable_to:
+  - patchwork.layout_and_design

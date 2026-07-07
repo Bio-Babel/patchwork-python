@@ -1,0 +1,32 @@
+id: patchwork.as_gtable
+import_path: patchwork.core.as_gtable
+kind: function
+signature: "as_gtable(x: Any) -> Gtable"
+purpose: "Port of R's S3 generic as.gtable(): convert a plot-like object into a gtable_py.Gtable."
+description: >
+  A functools.singledispatch generic. Registered for ggplot2_py.GGPlot in
+  core.py (delegates to ggplot2_py.ggplotGrob) and separately registered for
+  Patchwork in patchwork/__init__.py's cross-module dispatch setup (delegates
+  to patchworkGrob(x)) — the Patchwork registration is installed only after
+  every submodule has been imported, since it needs both add_plot.Patchwork
+  and core.patchworkGrob.
+parameters:
+  - name: x
+    type: Any
+    required: true
+    description: "Dispatch key — a GGPlot or a Patchwork."
+mutates: "execution_class=pure_function; both registrations build and return a new Gtable; returns_kind=new_object."
+returns: "gtable_py.Gtable"
+requires: []
+writes: []
+examples:
+  - "patchwork.as_gtable(p1)"
+  - "patchwork.as_gtable(p1 + p2)"
+failure_fixes:
+  - when: "x is neither a registered GGPlot nor Patchwork"
+    suggest:
+      - "Only call as_gtable on a ggplot2_py.GGPlot or a patchwork.Patchwork."
+    explanation: "The generic raises TypeError(f'No `as_gtable` method for object of type {type(x).__name__}') when no handler is registered for type(x) (core.py)."
+related:
+  - patchwork.patchworkGrob
+  - patchwork.plot_table

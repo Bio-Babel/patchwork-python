@@ -1,0 +1,16 @@
+id: patchwork.free_to_avoid_alignment_bleed
+name: Use free() so one plot's long axis label doesn't push whitespace into siblings
+description: >
+  When one plot in a composition has an unusually long/multi-line axis
+  label, patchwork's default cross-panel alignment reserves that much label
+  gutter space on every sibling too, causing unwanted whitespace. Wrapping
+  the OTHER (shorter-label) plot in free() lets it opt out of that shared
+  alignment instead of changing the plot with the long label.
+code_template: |
+  # p1, p2 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  p2mod = p2 + labs(x="This is such a long\nand important label that\nit has to span many lines")
+  fixed = pw.free(p1) | p2mod   # p1's panel no longer aligns to p2mod's wide label gutter
+anti_pattern_paired: patchwork.discard_copy_on_modify_result
+typical_use_case: "A composition where one sibling's long axis label is visibly pushing whitespace into its neighbors."
+applicable_to:
+  - patchwork.free_alignment

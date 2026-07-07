@@ -1,0 +1,82 @@
+id: patchwork.plot_annotation
+import_path: patchwork.annotation.plot_annotation
+kind: function
+signature: "plot_annotation(title: Any = WAIVER, subtitle: Any = WAIVER, caption: Any = WAIVER, tag_levels: Any = WAIVER, tag_prefix: Any = WAIVER, tag_suffix: Any = WAIVER, tag_sep: Any = WAIVER, theme: Any = WAIVER) -> PlotAnnotation"
+purpose: "Annotate the final composed patchwork with a title, subtitle, caption, and/or auto-generated per-panel tags."
+description: >
+  Every parameter defaults to the ggplot2_py WAIVER sentinel, meaning "leave
+  whatever is already set." plot_annotation() only decorates the top-level
+  composition (subtitle/caption/title rows are added once, around the whole
+  grid), whereas & + theme(...) restyles every sub-plot recursively.
+  tag_levels selects the autotagging alphabet(s): 'a'/'A' (lower/upper Latin),
+  '1' (Arabic), 'i'/'I' (lower/upper Roman); a list like ['A', '1'] assigns
+  one family per nesting depth, and nested patchworks continue the parent's
+  tag sequence unless a child was given plot_layout(tag_level='new').
+  Passing theme=None explicitly (as opposed to leaving it at WAIVER) clears
+  any previously-set annotation theme.
+parameters:
+  - name: title
+    type: "str | None"
+    required: false
+    default: WAIVER
+    description: "Overall title text."
+  - name: subtitle
+    type: "str | None"
+    required: false
+    default: WAIVER
+    description: "Overall subtitle text."
+  - name: caption
+    type: "str | None"
+    required: false
+    default: WAIVER
+    description: "Overall caption text."
+  - name: tag_levels
+    type: "str | list"
+    required: false
+    default: WAIVER
+    description: "One of 'a', 'A', '1', 'i', 'I', or a list assigning one alphabet per nesting depth, to auto-tag sub-plots."
+  - name: tag_prefix
+    type: str
+    required: false
+    default: WAIVER
+    description: "Text prepended to every tag."
+  - name: tag_suffix
+    type: str
+    required: false
+    default: WAIVER
+    description: "Text appended to every tag."
+  - name: tag_sep
+    type: str
+    required: false
+    default: WAIVER
+    description: "Separator used between multi-level tags."
+  - name: theme
+    type: "ggplot2_py Theme | None"
+    required: false
+    default: WAIVER
+    description: "Theme applied only to the outer composition (title/caption/tag styling); passing None clears any previously-set annotation theme."
+mutates: >
+  execution_class=pure_constructor; plot_annotation() itself only builds a
+  PlotAnnotation value object. The mutation happens when it is combined with
+  + on a GGPlot/Patchwork: update_ggplot's PlotAnnotation handler coerces
+  the LHS to a Patchwork and sets pw.patches.annotation's fields
+  field-by-field, skipping any field still at WAIVER; a non-WAIVER theme is
+  merged onto (added to) any existing annotation theme rather than replacing
+  it outright. returns_kind=new_value_object; the += consumer mutates
+  pw.patches.annotation in place.
+returns: "patchwork.annotation.PlotAnnotation — add it to a Patchwork/GGPlot with + to apply it."
+requires: []
+writes:
+  - patchwork.patches.annotation
+examples:
+  - "(p1 | (p2 / p3)) + patchwork.plot_annotation(title='Overview', tag_levels='A')"
+  - "patchwork_obj + patchwork.plot_annotation(tag_levels=['A', '1'], tag_prefix='Fig. ', tag_sep='.', tag_suffix=':')"
+failure_fixes:
+  - when: "tag_levels is an unrecognized string"
+    suggest:
+      - "Use one of 'a', 'A', '1', 'i', 'I' for each tag_levels entry."
+    explanation: "get_level(), used internally to expand tag_levels, raises ValueError matching 'Unknown tag type' for an unrecognized code (annotation.py)."
+related:
+  - patchwork.plot_layout
+  - patchwork.Patchwork
+  - patchwork.patchworkGrob

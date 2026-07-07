@@ -1,0 +1,31 @@
+id: patchwork.patchworkGrob
+import_path: patchwork.core.patchworkGrob
+kind: function
+signature: "patchworkGrob(x: Any) -> Gtable"
+purpose: "Assemble the final, fully annotated gtable for a Patchwork — the Python analogue of R's patchworkGrob(); this is what _repr_png_ and to_gtable() call."
+description: >
+  Resolves x.patches.annotation against the package defaults, applies
+  auto-tagging to every sub-plot (recurse_tags, honoring tag_levels/
+  tag_prefix/tag_suffix/tag_sep and each nested patchwork's own
+  plot_layout(tag_level=...)), calls build_patchwork to compose the grid,
+  then annotate_table to prepend/append title/subtitle/caption/background
+  rows and columns, and finally strips the internal "gtable_patchwork" class
+  tag before returning. patchwork_grob is a plain name-alias for this exact
+  function object (R snake_case parity).
+parameters:
+  - name: x
+    type: patchwork.Patchwork
+    required: true
+    description: "The composed patchwork to render."
+mutates: "execution_class=builder; builds new gtables at each step and mutates the class tag of the final table in place via remove_class; returns_kind=new_object."
+returns: "gtable_py.Gtable — the final, annotated gtable ready to draw or hand to a Cairo backend."
+requires: []
+writes: []
+examples:
+  - "patchwork.patchworkGrob(p1 + p2)"
+failure_fixes: []
+related:
+  - patchwork.build_patchwork
+  - patchwork.patchwork_grob
+  - patchwork.Patchwork
+  - patchwork.plot_annotation

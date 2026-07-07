@@ -1,0 +1,14 @@
+id: patchwork.axes_and_titles_collect
+name: Collect duplicate axes/axis titles across shared rows or columns
+description: >
+  plot_layout(axes="collect") removes duplicate axis ticks/labels that
+  would otherwise repeat on every panel sharing a row/column; axis_titles
+  (independently, or inherited from axes when omitted) does the same for
+  axis title text, centering the single remaining title across the shared
+  row/column.
+code_template: |
+  # p1, p2 are ggplot2_py.GGPlot objects sharing an axis; import patchwork as pw first.
+  composed = p1 + p2 + pw.plot_layout(axes="collect", axis_titles="collect")
+typical_use_case: "A row or column of plots sharing the same x/y scale, where repeating identical axis ticks/labels on every panel is just noise."
+applicable_to:
+  - patchwork.guide_axis_collection

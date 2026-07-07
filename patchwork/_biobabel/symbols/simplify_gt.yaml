@@ -1,0 +1,36 @@
+id: patchwork.simplify_gt
+import_path: patchwork.core.simplify_gt
+kind: function
+signature: "simplify_gt(gt: Any) -> Gtable"
+purpose: "Collapse a rendered gtable's internal class-tag structure into its final, flattened form before it's placed into a larger composition."
+description: >
+  A functools.singledispatch generic, registered for gtable_py.Gtable. It
+  branches on the gtable's internal class tag: "gtable_patchwork" (a nested
+  composed patchwork) is collapsed via a dedicated nested-collapse routine
+  and re-tagged "gtable_patchwork_simple"; "patchgrob" and "inset_table" are
+  passed through unchanged (already in final form); "free_table" strips the
+  tag and additionally applies per-side free-space/free-label/free-panel
+  handling; anything else goes through the general panel-collapse path. It
+  is called once per per-plot gtable inside build_patchwork.
+parameters:
+  - name: gt
+    type: "gtable_py.Gtable"
+    required: true
+    description: "The gtable to simplify, typically fresh output from plot_table."
+mutates: >
+  execution_class=pure_function; the pass-through branches ("patchgrob",
+  "inset_table") return gt unchanged, while the other branches build and
+  return a brand-new Gtable; returns_kind=identity_or_new_object.
+returns: "gtable_py.Gtable — the simplified gtable (same object for the pass-through cases, otherwise a newly built one)."
+requires: []
+writes: []
+examples:
+  - "patchwork.simplify_gt(patchwork.plot_table(p1))"
+failure_fixes:
+  - when: "gt is not a gtable_py.Gtable"
+    suggest:
+      - "Only call simplify_gt on a gtable_py.Gtable, typically the output of plot_table."
+    explanation: "The generic raises TypeError(f'No `simplify_gt` method for object of type {type(gt).__name__}') for unregistered types (core.py)."
+related:
+  - patchwork.plot_table
+  - patchwork.build_patchwork

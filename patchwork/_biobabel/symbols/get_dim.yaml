@@ -1,0 +1,33 @@
+id: patchwork.get_dim
+import_path: patchwork.multipage.get_dim
+kind: function
+signature: "get_dim(plot: Any) -> PlotDimension"
+purpose: "Extract a plot's outer-margin dimensions so they can be copied onto another plot for cross-page/cross-slide alignment."
+description: >
+  A functools.singledispatch generic, registered for ggplot2_py.GGPlot
+  (renders the plot via plot_table(plot, "auto"), then reads the panel's
+  surrounding widths/heights in mm) and for patchwork.Patchwork (always
+  raises — aligning composed patchworks is unsupported, matching R). Typical
+  use: capture one plot's margins with get_dim and apply them to a
+  differently-shaped plot with set_dim so the two look consistent when
+  rendered on separate pages/slides (not composed into one patchwork).
+parameters:
+  - name: plot
+    type: "ggplot2_py.GGPlot"
+    required: true
+    description: "The bare ggplot to measure. A Patchwork is not supported."
+mutates: "execution_class=pure_function; only reads plot via a render, no attribute is written back onto plot; returns_kind=new_object."
+returns: "patchwork.multipage.PlotDimension (GGPlotDimension subtype for the GGPlot handler) — dataclass of l/r/t/b float-mm lists."
+requires: []
+writes: []
+examples:
+  - "p3_dims = patchwork.get_dim(p3)"
+failure_fixes:
+  - when: "plot is a composed Patchwork rather than a bare ggplot"
+    suggest:
+      - "Call get_dim on the individual bare ggplot2_py.GGPlot objects before composing them, not on the composed Patchwork."
+    explanation: "get_dim.register(Patchwork) raises RuntimeError('Getting dimensions on patchworks is currently unsupported') (multipage.py)."
+related:
+  - patchwork.set_dim
+  - patchwork.get_max_dim
+  - patchwork.align_patches

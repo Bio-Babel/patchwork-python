@@ -1,0 +1,18 @@
+id: patchwork.design_string_layout
+name: Place plots exactly with a text design string
+description: >
+  plot_layout(design=...) accepts a multi-line string of letters (one per
+  plot, in the order plots were added) and '#' for empty cells, giving
+  pixel-perfect control over which plot occupies which grid cell —
+  including plots that span multiple rows/columns.
+code_template: |
+  # p1, p2, p3, p4 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  layout = """
+  ##BBBB
+  AACCDD
+  ##CCDD
+  """
+  composed = p1 + p2 + p3 + p4 + pw.plot_layout(design=layout)
+typical_use_case: "A custom multi-panel figure where plots need to span multiple rows/columns in a specific arrangement."
+applicable_to:
+  - patchwork.layout_and_design

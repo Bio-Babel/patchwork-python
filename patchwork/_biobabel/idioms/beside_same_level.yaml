@@ -1,0 +1,14 @@
+id: patchwork.beside_same_level
+name: Combine two patches at the same nesting level with -
+description: >
+  Unlike +, which can end up nesting its left-hand side under the result,
+  - places both sides at the SAME nesting level. Useful when later
+  operating on all top-level plots uniformly (e.g. with * or a shared
+  plot_layout) and a deeper nesting level would be unwanted.
+code_template: |
+  # p1, p2, p3 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  patch = p1 + p2
+  same_level = patch - p3   # p1, p2, p3 all sit at one nesting level
+typical_use_case: "Adding a third plot to an existing two-plot patchwork without deepening the nesting level."
+applicable_to:
+  - patchwork.operator_grammar

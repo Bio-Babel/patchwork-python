@@ -1,0 +1,27 @@
+id: patchwork.active_plot
+name: Active plot
+description: >
+  A Patchwork tracks one "active" plot — the most recently added element —
+  distinct from the finished plots already accumulated in its composition.
+  Adding an ordinary ggplot2 modifier (a theme, a labs() call, a geom layer)
+  with + targets only that active plot, not the whole composition.
+category: composition
+invariants:
+  - "`(p1 + p2) + labs(...)` applies labs() to p2 only (the active plot), not to p1 or to the composition as a whole."
+  - "The active plot slot is a PlotFiller sentinel (drawn as nothing, has_tag() is False) until a real plot has been added into it."
+  - "To restyle every sub-plot instead of just the active one, use `&` (recurse into nested patchworks too) or `*` (current nesting level only), not plain `+`."
+  - "Indexing `pw[i]`/`pw[i] = value` (0-based) reaches any finished patch or the active plot directly, bypassing the active-plot-only rule of plain +."
+mental_model: |
+  For R users: this mirrors R patchwork's own "last plot added" semantics —
+  `p1 + p2 + theme_bw()` in R also only themes `p2`. Nothing new here.
+
+  For Python users: this is the single biggest surprise coming from
+  ggplot2_py alone, where `+` always modifies the one plot on its left. In a
+  Patchwork, `+` after a composition targets the last-added plot, and `&`/`*`
+  are what you reach for to touch every sub-plot.
+
+  General: think of a Patchwork as a list with one "cursor" position (the
+  active plot) that ordinary ggplot-style `+` writes through, while `&`/`*`
+  and plot_layout()/plot_annotation() operate on the composition as a whole.
+related_concepts:
+  - patchwork.operator_grammar

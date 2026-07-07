@@ -1,0 +1,33 @@
+id: patchwork.as_patch_formula
+import_path: patchwork.wrap_elements.as_patch_formula
+kind: function
+signature: "as_patch_formula(x: Any, **kwargs: Any) -> Grob"
+purpose: "Documents that R's as_patch.formula (base-R plotting expressions via gridGraphics::echoGrob) has no Python counterpart; always raises."
+description: >
+  Kept only so the deviation from R is discoverable and documented; it is
+  not registered on the as_patch singledispatch (there is no Python
+  "formula" type to dispatch on). Calling it always raises NotImplementedError
+  pointing at the real alternative, wrap_elements(full=<grob>).
+parameters:
+  - name: x
+    type: Any
+    required: true
+    description: "Unused — the call always raises."
+  - name: kwargs
+    type: Any
+    required: false
+    description: "Unused."
+mutates: "execution_class=pure_function; no side effects, always raises; returns_kind=n/a."
+returns: "Never returns."
+requires: []
+writes: []
+examples: []
+failure_fixes:
+  - when: "porting R code that relied on as_patch.formula / a base-R plotting formula (e.g. ~plot(x, y))"
+    suggest:
+      - "Wrap an equivalent grob directly: patchwork.wrap_elements(full=<grob>)."
+      - "Reproduce the plot with ggplot2_py instead of base-R graphics."
+    explanation: "as_patch_formula always raises NotImplementedError('as_patch.formula has no Python counterpart: base-R graphics expressions (e.g. ~plot(x, y)) are not representable in Python. Wrap an equivalent grob directly via wrap_elements(full=<grob>).') (wrap_elements.py)."
+related:
+  - patchwork.wrap_elements
+  - patchwork.as_patch

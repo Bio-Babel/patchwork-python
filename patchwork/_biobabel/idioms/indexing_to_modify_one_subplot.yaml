@@ -1,0 +1,14 @@
+id: patchwork.indexing_to_modify_one_subplot
+name: Modify one specific sub-plot by index
+description: >
+  A composed Patchwork supports 0-based indexing (pw[i]) over its
+  accumulated plots (finished patches plus the active plot); reassigning
+  pw[i] = pw[i] + <modifier> targets exactly that one sub-plot, regardless
+  of which plot is currently "active."
+code_template: |
+  # p1, p2 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  composed = p1 + p2
+  composed[0] = composed[0] + theme_minimal()
+typical_use_case: "Tweaking one specific panel in an already-built composition without rebuilding it from scratch."
+applicable_to:
+  - patchwork.active_plot

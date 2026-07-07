@@ -1,0 +1,41 @@
+id: patchwork.merge
+import_path: patchwork.merge.merge
+kind: function
+signature: "merge(x: Any, *args: Any, **kwargs: Any) -> Any"
+purpose: "Flatten a nested Patchwork to a single child, or return other objects unchanged; an alternative to the '-' operator for combining patches without precedence surprises."
+description: >
+  A functools.singledispatch generic whose default dispatch is identity
+  (returns x unchanged, so calling merge on an arbitrary object never
+  crashes). Registered for ggplot2_py.GGPlot (identity, R defines it but it
+  has no effect) and for patchwork.Patchwork (demotes x to the sole child of
+  a fresh Patches wrapped under a new plot_filler() — i.e. "merge" a
+  composed patchwork down to something that can be combined with another
+  plot/patchwork at the same nesting level without operator-precedence
+  ambiguity). free() calls merge() internally on its copy before returning.
+parameters:
+  - name: x
+    type: Any
+    required: true
+    description: "Dispatch key. Registered: ggplot2_py.GGPlot (identity), patchwork.Patchwork (demote to single child)."
+  - name: args
+    type: Any
+    required: false
+    description: "Unused by the default/registered handlers."
+  - name: kwargs
+    type: Any
+    required: false
+    description: "Unused by the default/registered handlers."
+mutates: >
+  execution_class=pure_function; the Patchwork handler builds a brand-new
+  Patches object referencing the original x as its sole plot (x itself is
+  not mutated); the default/GGPlot handlers return x itself unchanged;
+  returns_kind=new_object_for_patchwork_else_identity.
+returns: "Any — x unchanged for GGPlot/unregistered types; a new Patchwork with x as its single child for a Patchwork input."
+requires: []
+writes: []
+examples:
+  - "patchwork.merge(p1 + p2)"
+failure_fixes: []
+related:
+  - patchwork.free
+  - patchwork.Patchwork

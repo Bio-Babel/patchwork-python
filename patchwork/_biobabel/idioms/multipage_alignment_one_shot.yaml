@@ -1,0 +1,18 @@
+id: patchwork.multipage_alignment_one_shot
+name: Align a whole set of separately-rendered plots in one call
+description: >
+  align_patches(*plots) computes the shared max outer margins across every
+  plot and applies them to each in one call, returning the list ready for
+  sequential display — the recommended one-shot alternative to manually
+  pairing get_dim/set_dim or get_max_dim/set_dim per plot. Use
+  align_patches, not the deprecated align_plots alias.
+code_template: |
+  # p1, p2, p3, p4 are bare ggplot2_py.GGPlot objects (not composed into one
+  # Patchwork); import patchwork as pw first.
+  plots_aligned = pw.align_patches(p1, p2, p3, p4)
+  for p in plots_aligned:
+      display(p)
+anti_pattern_paired: patchwork.use_deprecated_align_plots
+typical_use_case: "Rendering several plots on separate slides/pages that should share consistent outer margins even though they're never composed into one patchwork."
+applicable_to:
+  - patchwork.multipage_alignment

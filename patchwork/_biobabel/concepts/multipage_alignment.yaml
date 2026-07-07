@@ -1,0 +1,30 @@
+id: patchwork.multipage_alignment
+name: Cross-render (multi-page) margin alignment
+description: >
+  get_dim(), set_dim(), get_max_dim(), and align_patches() align the outer
+  margins of plots that are rendered SEPARATELY (e.g. on different slides
+  or PDF pages) and therefore share no common patchwork/gtable at render
+  time — unlike within-composition alignment, which patchwork handles
+  automatically for panels inside one patchwork.
+category: layout
+invariants:
+  - "get_dim/set_dim/get_max_dim/align_patches only accept a bare ggplot2_py.GGPlot; calling any of them on a composed Patchwork raises RuntimeError — aligning patchworks as a unit is unsupported (matching R)."
+  - "set_dim(plot, dim) mutates plot in place and is inert until the plot is next rendered — the captured margins are applied at render time by the same machinery that lays out ordinary panels, not immediately."
+  - "align_patches(*plots) is the one-shot recommended path: it computes get_max_dim across all plots and applies it to each via set_dim, returning the mutated list ready for sequential display."
+  - "align_plots is a deprecated alias for align_patches — it always emits a DeprecationWarning before delegating."
+mental_model: |
+  For R users: same get_dim/set_dim/get_max_dim/align_patches API and the
+  same align_plots-is-deprecated status as R patchwork.
+
+  For Python users: this is unrelated to composing plots into one
+  Patchwork with +/|// — those get aligned automatically as part of one
+  render. get_dim/set_dim solve the different problem of keeping SEPARATE,
+  independently-displayed plots visually consistent (e.g. across slides in
+  a deck) when they don't share a legend/axis and so would otherwise render
+  with different panel margins.
+
+  General: within one patchwork, alignment is automatic and free() is the
+  opt-out; across separate renders, alignment is opt-in via
+  get_dim/set_dim/align_patches.
+related_concepts:
+  - patchwork.free_alignment

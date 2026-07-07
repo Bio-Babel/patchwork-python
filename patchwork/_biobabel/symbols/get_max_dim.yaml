@@ -1,0 +1,32 @@
+id: patchwork.get_max_dim
+import_path: patchwork.multipage.get_max_dim
+kind: function
+signature: "get_max_dim(*plots: Any) -> PlotDimension"
+purpose: "Compute the element-wise max outer-margin dimensions across several plots, to later apply uniformly via set_dim."
+description: >
+  Accepts either several positional plots or a single list/tuple (R-style
+  variadic, shared _collect_plots helper with align_patches). Calls get_dim
+  on each plot and takes the pointwise max of their l/r/t/b margin lists
+  (shorter lists are treated as 0.0 for missing trailing positions). Returns
+  a plain PlotDimension (not the GGPlotDimension subtype that a single
+  get_dim(GGPlot) call returns).
+parameters:
+  - name: plots
+    type: "GGPlot | list[GGPlot] | tuple[GGPlot, ...]"
+    required: true
+    description: "Individual plots, or a single list/tuple of plots. Each must be a bare ggplot2_py.GGPlot."
+mutates: "execution_class=pure_function; only reads each plot via get_dim, does not mutate any input; returns_kind=new_object."
+returns: "patchwork.multipage.PlotDimension — element-wise max of l/r/t/b across all get_dim(plot) results."
+requires: []
+writes: []
+examples:
+  - "max_dims = patchwork.get_max_dim(p1, p2, p3, p4)"
+failure_fixes:
+  - when: "one of the plots is a composed Patchwork"
+    suggest:
+      - "Only pass bare ggplot2_py.GGPlot objects — get_max_dim calls get_dim on each, which raises for a Patchwork."
+    explanation: "get_max_dim delegates to get_dim per plot, inheriting its RuntimeError on Patchwork input (multipage.py)."
+related:
+  - patchwork.get_dim
+  - patchwork.set_dim
+  - patchwork.align_patches

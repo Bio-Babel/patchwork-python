@@ -1,0 +1,29 @@
+id: patchwork.align_plots
+import_path: patchwork.multipage.align_plots
+kind: function
+signature: "align_plots(*plots: Any) -> List[Any]"
+purpose: "Deprecated alias for align_patches, kept only for R API-name parity."
+description: >
+  Forwards every argument verbatim to align_patches and returns its result
+  unchanged. Every call emits a DeprecationWarning; prefer align_patches
+  directly in new code.
+parameters:
+  - name: plots
+    type: "GGPlot | list[GGPlot] | tuple[GGPlot, ...]"
+    required: true
+    description: "Forwarded verbatim to align_patches."
+mutates: "execution_class=pure_delegate; forwards to align_patches, which mutates each input plot in place; returns_kind=same_objects."
+returns: "list[GGPlot] — identical to align_patches(*plots)."
+requires: []
+writes:
+  - ggplot.fixed_dimensions
+  - ggplot._ptw_fixed_dim
+examples:
+  - "plots_aligned = patchwork.align_plots(p1, p2, p3)  # DeprecationWarning"
+failure_fixes:
+  - when: "a DeprecationWarning about align_plots appears"
+    suggest:
+      - "Call patchwork.align_patches(...) instead — align_plots is only a deprecated alias."
+    explanation: "align_plots always calls warnings.warn('`align_plots` is deprecated; use `align_patches` instead.', DeprecationWarning) before delegating (multipage.py)."
+related:
+  - patchwork.align_patches

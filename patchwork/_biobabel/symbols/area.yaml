@@ -1,0 +1,51 @@
+id: patchwork.area
+import_path: patchwork.layout.area
+kind: function
+signature: "area(t: int | Sequence[int] | None = None, l: int | Sequence[int] | None = None, b: int | Sequence[int] | None = None, r: int | Sequence[int] | None = None) -> PatchArea"
+purpose: "Specify one or more rectangular plotting areas for a programmatic plot_layout(design=...)."
+description: >
+  1-based, inclusive grid coordinates. If both t and l are None, an empty
+  PatchArea (length 0) is returned. b defaults to t and r defaults to l when
+  omitted, giving a single-cell area. Multiple area() calls can be combined
+  with + (area(...) + area(...)) to build a multi-cell/overlapping design,
+  which is exactly what plot_layout(design=...) accepts as an alternative to
+  a text design string.
+parameters:
+  - name: t
+    type: "int | Sequence[int] | None"
+    required: false
+    default: "None"
+    description: "Top row bound(s), 1-based inclusive."
+  - name: l
+    type: "int | Sequence[int] | None"
+    required: false
+    default: "None"
+    description: "Left column bound(s), 1-based inclusive."
+  - name: b
+    type: "int | Sequence[int] | None"
+    required: false
+    default: "None"
+    description: "Bottom row bound(s); defaults to t if omitted."
+  - name: r
+    type: "int | Sequence[int] | None"
+    required: false
+    default: "None"
+    description: "Right column bound(s); defaults to l if omitted."
+mutates: "execution_class=pure_function; builds and returns a new PatchArea via recycling/validation; returns_kind=new_object."
+returns: "PatchArea — a dataclass of four equal-length int lists (t, l, b, r), one entry per rectangular cell; len(area(...)) is the cell count."
+requires: []
+writes: []
+examples:
+  - "patchwork.area(t=2, l=1, b=5, r=4) + patchwork.area(t=1, l=3, b=3, r=5)"
+  - "patchwork.plot_layout(design=patchwork.area(1, 1) + patchwork.area(2, 2, 3, 3))"
+failure_fixes:
+  - when: "t is greater than b"
+    suggest:
+      - "Ensure t <= b (top must be above or equal to bottom in 1-based row coordinates)."
+    explanation: "area() raises ValueError('`t` must be less than or equal to `b`') (layout.py)."
+  - when: "l is greater than r"
+    suggest:
+      - "Ensure l <= r (left must be at or before right in 1-based column coordinates)."
+    explanation: "area() raises ValueError('`l` must be less than or equal to `r`') (layout.py)."
+related:
+  - patchwork.plot_layout

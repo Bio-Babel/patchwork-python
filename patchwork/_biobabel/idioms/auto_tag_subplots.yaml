@@ -1,0 +1,14 @@
+id: patchwork.auto_tag_subplots
+name: Auto-tag sub-plots with plot_annotation(tag_levels=...)
+description: >
+  tag_levels assigns sequential labels ('A','a','1','I','i' families) to
+  every taggable sub-plot in composition order; tag_prefix/tag_suffix/
+  tag_sep customize the rendered tag text.
+code_template: |
+  # p1, p2, p3 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  tagged = (p1 + p2 + p3) + pw.plot_annotation(
+      tag_levels="A", tag_prefix="Fig. ", tag_sep=".", tag_suffix=":"
+  )
+typical_use_case: "Publication figures that need each sub-panel labeled (A), (B), (C), ... for cross-referencing in the text."
+applicable_to:
+  - patchwork.layout_and_design

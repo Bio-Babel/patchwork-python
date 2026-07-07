@@ -1,0 +1,28 @@
+id: patchwork.free_alignment
+name: Freeing a plot from within-composition alignment
+description: >
+  Inside one patchwork, sibling panels normally align their panel sizes and
+  axis-label gutters to each other. free(plot, type=..., side=...) opts a
+  specific plot out of that alignment along chosen sides, most commonly to
+  stop one plot's unusually long axis label from pushing whitespace into
+  every sibling panel.
+category: layout
+invariants:
+  - "free() never mutates its input — it always returns a copy tagged with free-settings, so repeated free(p) calls on the same variable never accumulate stale state."
+  - "type='panel' lets the panel size expand independently; type='label' keeps the axis label glued to its own axis instead of aligned with siblings; type='space' stops reserving axis-label gutter space at all."
+  - "side restricts which of the four edges (t, r, b, l) are freed; re-freeing an already-freed side with a different type overwrites just that side (with a UserWarning), leaving other previously-freed sides untouched."
+  - "free() internally calls merge() on its copy, so free(some_patchwork) also demotes that nested patchwork to a single child under a filler."
+mental_model: |
+  For R users: same free()/type/side semantics as R patchwork's free().
+
+  For Python users: because Python has reference semantics (not R's
+  copy-on-modify), free() has to explicitly copy the plot before tagging it
+  — this is why `p1_freed = free(p1)` never marks the original `p1`, and why
+  it's safe to call free() with different settings on the same source plot
+  more than once.
+
+  General: alignment is the default; free() is the targeted escape hatch
+  for the one sibling whose axis labels or panel size shouldn't force
+  everyone else to match it.
+related_concepts:
+  - patchwork.multipage_alignment

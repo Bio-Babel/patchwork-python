@@ -1,0 +1,51 @@
+id: patchwork.Patchwork
+import_path: patchwork.add_plot.Patchwork
+kind: class
+signature: "Patchwork(plot: GGPlot, patches: Optional[Patches] = None)"
+purpose: "The composite object built up by +, |, /, -, *, & that holds the growing set of plots plus their shared layout and annotation."
+description: >
+  A plain composition class (not a dataclass) with exactly two fields set in
+  __init__: `plot` (the "active" GGPlot most recently added — may be a
+  PlotFiller sentinel before any real plot has been inserted) and `patches`
+  (a Patches instance holding `plots: list`, `layout: PlotLayout`,
+  `annotation: PlotAnnotation`). Operators on GGPlot (installed by
+  `arithmetic.install_ggplot_operators()`) delegate to a Patchwork once one
+  side of the expression already is one. `len(pw)` counts finished patches
+  plus the active plot if non-empty; `pw[i]` / `pw[i] = value` index into
+  that same combined sequence (0-based); `pw.to_gtable()` is shorthand for
+  `patchworkGrob(pw)`.
+parameters:
+  - name: plot
+    type: ggplot2_py.GGPlot
+    required: true
+    description: "The active plot being built up (may be a PlotFiller sentinel)."
+  - name: patches
+    type: Optional[Patches]
+    required: false
+    default: "None"
+    description: "Existing plots/layout/annotation container; a fresh one (via new_patchwork()) is created when omitted."
+mutates: >
+  execution_class=stateful_container; __setitem__ (replacing the active
+  slot) and the plain-object fallback branch of __add__ (`self.plot =
+  self.plot + other`) mutate self.plot/self.patches in place and return
+  self; additions of PlotLayout/PlotAnnotation/GGPlot/Patch/Patchwork route
+  through update_ggplot instead, which may return a different Patchwork
+  object rather than mutating this one; returns_kind=self_or_new.
+returns: ''
+requires: []
+writes:
+  - patchwork.patches.layout
+  - patchwork.patches.annotation
+examples:
+  - "patchwork.Patchwork(plot=p1) + p2"
+  - "len(p1 + p2 + p3)"
+failure_fixes:
+  - when: "pw[i] is a nested tuple index but the target at pw[i[0]] is not itself a Patchwork"
+    suggest:
+      - "Index only into positions that actually hold a nested Patchwork before using a tuple index."
+    explanation: "__getitem__ raises IndexError when a tuple index tries to descend into a non-Patchwork element (add_plot.py)."
+related:
+  - patchwork.build_patchwork
+  - patchwork.patchworkGrob
+  - patchwork.plot_layout
+  - patchwork.plot_annotation

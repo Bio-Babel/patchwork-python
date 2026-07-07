@@ -1,0 +1,13 @@
+id: patchwork.active_plot_append
+name: Append with + and keep modifying the active plot
+description: >
+  The simplest composition: + appends a plot, and further + with an
+  ordinary ggplot2 modifier (labs, theme, a geom) after that keeps targeting
+  only the just-added ("active") plot, not the whole composition.
+code_template: |
+  # p1, p2 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  composed = p1 + p2
+  composed = composed + labs(subtitle="This subtitle lands on p2 only")
+typical_use_case: "Building up a two-or-more-plot figure while continuing to tweak the most recently added plot before moving on."
+applicable_to:
+  - patchwork.active_plot

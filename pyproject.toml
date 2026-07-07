@@ -23,8 +23,17 @@ tables = ["great_tables>=0.16"]   # required by wrap_table()
 dev = ["pytest", "pytest-cov", "ruff"]
 docs = ["mkdocs", "mkdocstrings[python]", "mkdocs-material", "mkdocs-jupyter"]
 
+[project.entry-points."biobabel.manifest"]
+patchwork = "patchwork._biobabel:get_manifest"
+
+[project.entry-points."biobabel.detectors"]
+"patchwork.discard_copy_on_modify_result" = "patchwork._biobabel.detectors:discard_copy_on_modify_result"
+
 [tool.hatch.build.targets.wheel]
 packages = ["patchwork", "tutorials"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.biobabel]
+contract_class = "grammar"

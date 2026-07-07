@@ -1,0 +1,29 @@
+id: patchwork.guide_axis_collection
+name: Guide and axis collection
+description: >
+  plot_layout(guides=..., axes=..., axis_titles=...) controls whether
+  duplicate legends and duplicate axes/axis-titles across composed panels
+  are deduplicated ("collected") to one shared location instead of being
+  repeated on every panel. guides accepts 'auto'/'collect'/'keep'; axes and
+  axis_titles accept 'keep'/'collect'/'collect_x'/'collect_y'.
+category: layout
+invariants:
+  - "guides='collect' deduplicates legends by structural equality (after canonicalizing colour/unit encodings), not by literal object identity — two legends that render identically are merged even if built independently."
+  - "A child-level plot_layout(guides='keep') stops an ancestor's guides='collect' from propagating into that nested subtree."
+  - "guide_area() reserves an explicit cell for the collected legends; without it, collected guides attach to a shared implicit edge instead."
+  - "axis_titles inherits whatever axes was set to when axis_titles is not passed explicitly — pass axis_titles=WAIVER explicitly to opt out of that inheritance and keep axis-title collection independent of axis collection."
+mental_model: |
+  For R users: same guides/axes/axis_titles values and inheritance rule
+  (`axis_titles = axes` unless overridden) as R's plot_layout().
+
+  For Python users: guides/axes/axis_titles are plain strings validated
+  against a fixed set of choices (arg_match raises ValueError on a typo);
+  there's no separate "collect" object to construct — just pass the string
+  to plot_layout().
+
+  General: "collect" answers "do these panels' legends/axes look
+  identical enough to show only once?" — it's a dedup operation, not a
+  layout-position operation; guide_area() is what controls *where* the
+  deduplicated legend ends up.
+related_concepts:
+  - patchwork.layout_and_design

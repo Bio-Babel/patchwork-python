@@ -1,0 +1,13 @@
+id: patchwork.layout_axis_title_inheritance
+description: >
+  How plot_layout's axis_titles field resolves against its axes field when
+  the two govern related but independently-usable collection behaviors.
+parent: patchwork.layout_and_design
+child: patchwork.guide_axis_collection
+constraints:
+  - "If plot_layout(axes=...) is passed and axis_titles is NOT passed explicitly, axis_titles silently takes on the same value as axes — an inheriting default, not an independent WAIVER."
+  - "Passing plot_layout(axis_titles=WAIVER) explicitly opts out of that inheritance, decoupling axis-title collection from axis collection even though axes was set."
+  - "Passing plot_layout(axes=..., axis_titles=<some other explicit value>) keeps the two fully independent — the explicit axis_titles value always wins over the inherited one."
+typical_errors:
+  - "Expecting plot_layout(axes='collect_x') to leave axis titles uncollected by default — it does not; axis_titles silently becomes 'collect_x' too unless axis_titles=WAIVER is passed explicitly."
+  - "Passing axis_titles=None expecting it to mean 'no inheritance, use the package default' — None is not the inheritance-opt-out sentinel here; WAIVER is."

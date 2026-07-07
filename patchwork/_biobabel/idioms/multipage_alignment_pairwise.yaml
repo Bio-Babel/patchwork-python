@@ -1,0 +1,14 @@
+id: patchwork.multipage_alignment_pairwise
+name: Copy one plot's margins onto another with get_dim/set_dim
+description: >
+  get_dim(plot) captures a bare ggplot's outer-margin dimensions; set_dim
+  (plot, dim) applies a previously captured PlotDimension to another plot.
+  Use get_max_dim(*plots) first when more than two plots need the same
+  element-wise-max margins applied individually.
+code_template: |
+  # p1, p3 are bare ggplot2_py.GGPlot objects; import patchwork as pw first.
+  p3_dims = pw.get_dim(p3)
+  p1_aligned = pw.set_dim(p1, p3_dims)
+typical_use_case: "Matching one plot's margins to a specific other plot's, when a one-shot align_patches over the whole set isn't what's needed."
+applicable_to:
+  - patchwork.multipage_alignment

@@ -1,0 +1,11 @@
+id: patchwork.pack_horizontal
+name: Pack two plots side by side with |
+description: >
+  | is shorthand for + followed by plot_layout(nrow=1) — the simplest way
+  to place two plots next to each other.
+code_template: |
+  # p1, p2 are ggplot2_py.GGPlot objects; import patchwork as pw first.
+  side_by_side = p1 | p2
+typical_use_case: "Two plots meant to be compared visually left-to-right."
+applicable_to:
+  - patchwork.operator_grammar

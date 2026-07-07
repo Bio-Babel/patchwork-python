@@ -1,0 +1,37 @@
+id: patchwork.operator_grammar
+name: Composition operator grammar
+description: >
+  patchwork installs six operators on ggplot2_py.GGPlot (and Patchwork
+  carries all of them as methods): + (append, becomes active plot), -
+  (place beside, same nesting level), | (pack side-by-side, shortcut for
+  `+ plot_layout(nrow=1)`), / (stack vertically, shortcut for
+  `+ plot_layout(ncol=1)`), * (add to every plot at the current nesting
+  level only), and & (add to every plot recursively, including nested
+  patchworks).
+category: composition
+invariants:
+  - "`p1 | p2` is exactly `p1 + p2 + plot_layout(nrow=1)`; `p1 / p2` is exactly `p1 + p2 + plot_layout(ncol=1)` — both go through the same active-plot-appending + underneath."
+  - "`p1 - p2` keeps p1 and p2 at the same nesting level (does not nest p1 under p2), unlike `p1 + p2` which can end up nesting depending on what p1 already is."
+  - "`pw * x` walks pw's top-level plots and adds x to every one that is not itself a nested Patchwork — nested sub-patchworks are left untouched."
+  - "`pw & x` walks every plot AND recurses into nested Patchworks, applying x everywhere; when x is a theme, `&` also merges it onto the overall composition's annotation theme."
+  - "Python's `/` and `*` bind TIGHTER than `|` and `&` — the opposite of R's operator precedence. `p1 | p2 / p3` parses as `p1 | (p2 / p3)` in Python but `(p1 | p2) / p3` in R. Always parenthesize when mixing these operators."
+mental_model: |
+  For R users: same six operators, same names, same semantics per-operator
+  — but R's `|`/`&` bind TIGHTER than `/`/`*`, the exact opposite of Python.
+  Any expression you'd write unparenthesized in R that mixes `|` or `&` with
+  `/` or `*` will silently reparse differently here. Always parenthesize.
+
+  For Python users: these aren't Python's native meanings for these
+  operators (`|` isn't bitwise-or here, `/` isn't division) — patchwork
+  installs custom `__or__`/`__truediv__`/etc. on GGPlot specifically so this
+  arithmetic-style composition grammar works. Python's normal precedence
+  rules still apply to the *installed* operators, which is what creates the
+  R-divergence above.
+
+  General: `|` and `/` are layout shortcuts built on top of `+`
+  and `plot_layout`; `*`/`&` differ only in whether they recurse into nested
+  compositions; `-` is for combining two things without forcing one to nest
+  under the other.
+related_concepts:
+  - patchwork.active_plot
+  - patchwork.layout_and_design

@@ -1,0 +1,20 @@
+id: patchwork.plot_spacer
+import_path: patchwork.spacer.plot_spacer
+kind: function
+signature: "plot_spacer() -> Spacer"
+purpose: "Reserve a completely blank cell between other patches in a layout."
+description: >
+  Takes no arguments. Returns a Spacer (a Patch subclass) that draws nothing,
+  takes no space in a text design string beyond its own cell, and never
+  receives an auto-tag (has_tag returns False for it).
+parameters: []
+mutates: "execution_class=pure_function; builds and tags a brand-new Spacer via make_patch(); returns_kind=new_object."
+returns: "patchwork.spacer.Spacer — a Patch subclass; add it to a composition with +."
+requires: []
+writes: []
+examples:
+  - "p1 + patchwork.plot_spacer() + p2"
+failure_fixes: []
+related:
+  - patchwork.guide_area
+  - patchwork.plot_layout

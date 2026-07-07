@@ -1,0 +1,22 @@
+id: patchwork.patchwork_grob
+import_path: patchwork.core.patchwork_grob
+kind: function
+signature: "patchwork_grob(x: Any) -> Gtable"
+purpose: "R-compatible snake_case name for patchworkGrob — the exact same function object, not a wrapper."
+description: >
+  `patchwork_grob = patchworkGrob` (a plain name binding in core.py). Use
+  patchworkGrob or patchwork_grob interchangeably.
+parameters:
+  - name: x
+    type: patchwork.Patchwork
+    required: true
+    description: "The composed patchwork to render."
+mutates: "execution_class=builder; identical to patchworkGrob (same object); returns_kind=new_object."
+returns: "gtable_py.Gtable — identical behavior to patchworkGrob."
+requires: []
+writes: []
+examples:
+  - "patchwork.patchwork_grob(p1 + p2)"
+failure_fixes: []
+related:
+  - patchwork.patchworkGrob
