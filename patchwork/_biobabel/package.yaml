@@ -19,29 +19,6 @@ foundation:
   - grid_py
   - gtable_py
   - scales
-capabilities:
-  - multi-panel-composition
-  - shared-legend-collection
-  - shared-axis-collection
-  - figure-annotation-and-tagging
-  - cross-page-plot-alignment
-domain_tags:
-  - data-visualization
-task_tags:
-  - multi-panel-figure
-  - plot-layout
-  - figure-annotation
-  - publication-figure
-triggers:
-  - compose multiple ggplot2 figures into a single layout
-  - arrange ggplot plots side by side or stacked using operators like | and /
-  - add a shared title, subtitle, caption, or panel tags across several composed ggplot figures
-  - collect shared legends or axes across composed ggplot panels instead of repeating them per panel
-  - align ggplot panel margins across separately rendered figures on different pages or slides
-not_when:
-  - producing a single ggplot2 figure with no composition of other plots — use ggplot2_py directly
-  - building the grammar-of-graphics figure itself (scales, geoms, themes) — that is ggplot2_py's job, not patchwork's
-  - composing base-R graphics or other non-ggplot2 plotting output — unsupported in this port, use ggplot2_py instead
 templates:
   - id: patchwork.getting_started
     path: templates/getting_started.py
